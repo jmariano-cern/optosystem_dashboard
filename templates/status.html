@@ -1,34 +1,157 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>{{component}} Status</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<a href="/">Home</a> |
+<a href="/submit">Enter Test</a>
+
 <h1>{{component}} Status</h1>
 
-Total tested: {{total}} <br>
-Good: {{good}} <br>
-Bad: {{bad}} <br>
-Under investigation: {{investigation}} <br>
+<b>Total tested:</b> {{total}} <br>
+<b>Good:</b> {{good}} <br>
+<b>Bad:</b> {{bad}} <br>
+<b>Under investigation:</b> {{investigation}} <br>
 
-Yield: {{(yield_estimate*100)|round(2)}} %
+<br>
+
+<b>Yield:</b> {{ (yield_estimate*100)|round(2) }} %
+
+<br><br>
 
 <h3>Production Goal</h3>
 
-<div style="width:400px;border:1px solid black;">
-  <div style="width:{{progress}}%;background:green;color:white;">
-    {{progress|round(1)}}%
-  </div>
+Goal: {{goal}} good components
+
+<div style="width:400px;border:1px solid black">
+
+<div style="width:{{ (progress*100)|round(1) }}%;background:green;color:white">
+
+{{ (progress*100)|round(1) }} %
+
 </div>
+
+</div>
+
+<br>
 
 <h3>Failure Modes</h3>
 
-<table>
-<tr><th>Mode</th><th>Count</th></tr>
+<table border="1">
 
-{% for k,v in failures.items() %}
 <tr>
-<td>{{k}}</td>
-<td>{{v}}</td>
+<th>Failure Mode</th>
+<th>Count</th>
 </tr>
+
+{% for f,c in failures.items() %}
+
+<tr>
+<td>{{f}}</td>
+<td>{{c}}</td>
+</tr>
+
 {% endfor %}
 
 </table>
 
-<canvas id="timeline"></canvas>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="/static/charts.js"></script>
+<br>
+
+<h3>Testing History</h3>
+
+<canvas id="historyChart"></canvas>
+
+<script>
+
+let rows = {{ rows | tojson }}
+
+let labels = []
+let total = []
+let good = []
+let bad = []
+let inv = []
+
+let t=0,g=0,b=0,i=0
+
+rows.forEach(r => {
+
+    t++
+
+    if(r.status=="good") g++
+    if(r.status=="bad") b++
+    if(r.status=="under investigation") i++
+
+    labels.push(r.timestamp)
+
+    total.push(t)
+    good.push(g)
+    bad.push(b)
+    inv.push(i)
+
+})
+
+new Chart(document.getElementById("historyChart"), {
+
+type:'line',
+
+data:{
+
+labels:labels,
+
+datasets:[
+
+{label:"Total",data:total},
+
+{label:"Good",data:good},
+
+{label:"Bad",data:bad},
+
+{label:"Under Investigation",data:inv}
+
+]
+
+}
+
+})
+
+</script>
+
+<br>
+
+<h3>Recent Tests</h3>
+
+<table border="1">
+
+<tr>
+<th>Serial</th>
+<th>Status</th>
+<th>Tester</th>
+<th>Failure</th>
+<th>Time</th>
+</tr>
+
+{% for r in rows[-20:] %}
+
+<tr>
+<td>{{r.serial_number}}</td>
+<td>{{r.status}}</td>
+<td>{{r.tester}}</td>
+<td>{{r.failure_mode}}</td>
+<td>{{r.timestamp}}</td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+</body>
+
+</html>

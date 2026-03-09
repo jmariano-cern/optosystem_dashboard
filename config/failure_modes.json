@@ -1,7 +1,23 @@
-[
-  "No signal",
-  "Short circuit",
-  "Connector failure",
-  "Power instability",
-  "Thermal failure"
-]
+{
+  "Optoboard": [
+    "No optical signal",
+    "Laser failure",
+    "Clock failure"
+  ],
+
+  "Optobox": [
+    "Connector failure",
+    "Mechanical damage"
+  ],
+
+  "Connectorboard": [
+    "Short circuit",
+    "Broken trace"
+  ],
+
+  "Powerboard": [
+    "Voltage instability",
+    "Regulator failure",
+    "Overheating"
+  ]
+}

@@ -19,12 +19,11 @@ with open("config/testers.json") as f:
 with open("config/failure_modes.json") as f:
     failure_modes = json.load(f)
 
-
 # -------------------------
-# DATABASE HELPER
+# DATABASE HELPERS
 # -------------------------
 
-def query_db(query, args=(), one=False):
+def query_db(query, args=()):
 
     conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
@@ -35,7 +34,7 @@ def query_db(query, args=(), one=False):
 
     conn.close()
 
-    return (rows[0] if rows else None) if one else rows
+    return rows
 
 
 def execute_db(query, args=()):
@@ -63,11 +62,13 @@ def index():
 
 
 # -------------------------
-# SUBMISSION PAGE
+# SUBMIT PAGE
 # -------------------------
 
 @app.route("/submit", methods=["GET", "POST"])
 def submit():
+
+    message = None
 
     if request.method == "POST":
 
@@ -83,13 +84,14 @@ def submit():
         VALUES (?, ?, ?, ?, ?)
         """, (component, serial, tester, status, failure))
 
-        return redirect(url_for("submit"))
+        message = f"Component {serial} recorded successfully."
 
     return render_template(
         "submit.html",
         components=components,
         testers=testers,
-        failures=failure_modes
+        failures=failure_modes,
+        message=message
     )
 
 
@@ -116,7 +118,6 @@ def status(component):
     goal = components[component]["goal"]
     progress = good / goal if goal else 0
 
-    # failure mode breakdown
     failure_counts = {}
 
     for r in rows:
@@ -139,7 +140,7 @@ def status(component):
         progress=progress,
 
         failures=failure_counts,
-        rows=rows
+        rows=[dict(r) for r in rows]  # convert for JSON
     )
 
 

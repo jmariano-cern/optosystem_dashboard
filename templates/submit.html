@@ -1,45 +1,68 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Submit Test Result</title>
+</head>
+
+<body>
+
+<a href="/">Home</a>
+
 <h1>Enter Test Result</h1>
+
+{% if message %}
+<p style="color:green"><b>{{message}}</b></p>
+{% endif %}
 
 <form method="post">
 
 Component:
-<select name="component">
+
+<select name="component" id="component" onchange="updateFailures()">
+
 {% for c in components %}
 <option value="{{c}}">{{c}}</option>
 {% endfor %}
+
 </select>
 
-<br>
+<br><br>
 
 Serial Number:
-<input type="text" name="serial">
 
-<br>
+<input type="text" name="serial" required>
+
+<br><br>
 
 Tester:
+
 <select name="tester">
+
 {% for t in testers %}
 <option value="{{t}}">{{t}}</option>
 {% endfor %}
+
 </select>
 
-<br>
+<br><br>
 
 Status:
+
 <select name="status">
-<option value="good">Good</option>
-<option value="bad">Bad</option>
-<option value="under_investigation">Under Investigation</option>
+
+<option value="good">good</option>
+<option value="bad">bad</option>
+<option value="under investigation">under investigation</option>
+
 </select>
 
-<br>
+<br><br>
 
 Failure Mode:
-<select name="failure_mode">
+
+<select name="failure_mode" id="failure_mode">
 <option value="">None</option>
-{% for f in failures %}
-<option value="{{f}}">{{f}}</option>
-{% endfor %}
 </select>
 
 <br><br>
@@ -47,3 +70,37 @@ Failure Mode:
 <button type="submit">Submit</button>
 
 </form>
+
+<script>
+
+let failures = {{ failures | tojson }}
+
+function updateFailures(){
+
+    let component = document.getElementById("component").value
+    let failureSelect = document.getElementById("failure_mode")
+
+    failureSelect.innerHTML = "<option value=''>None</option>"
+
+    if(component in failures){
+
+        failures[component].forEach(function(mode){
+
+            let opt = document.createElement("option")
+            opt.value = mode
+            opt.text = mode
+
+            failureSelect.appendChild(opt)
+
+        })
+    }
+
+}
+
+updateFailures()
+
+</script>
+
+</body>
+
+</html>
