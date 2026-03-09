@@ -44,6 +44,19 @@ Goal: {{goal}} good components
 
 <br>
 
+<h3>Production Forecast</h3>
+<ul>
+<li>Total good components so far: {{forecast.total_good}}</li>
+<li>First day of testing: {{forecast.first_day}}</li>
+<li>Total number of business days since first test: {{forecast.num_days}}</li>
+<li>Average good components per day: {{forecast.avg_good_per_day | round(2)}}</li>
+<li>Remaining good components until goal: {{forecast.remaining_good}}</li>
+<li>Expected number of testing days until goal: {{forecast.expected_testing_days | round(2)}}</li>
+<li>Expected completion date: {{forecast.predicted_completion_date}}</li>
+</ul>
+
+<br>
+
 <h2>Status Composition</h2>
 <div class="chart-container">
     <canvas id="statusPie"></canvas>
@@ -78,19 +91,6 @@ Goal: {{goal}} good components
 </p>
 
 <canvas id="historyChart" width="600" height="300"></canvas>
-
-<br>
-
-<h3>Production Forecast (Verification)</h3>
-<ul>
-<li>Total good components so far: {{forecast.total_good}}</li>
-<li>First day of testing: {{forecast.first_day}}</li>
-<li>Total number of business days since first test: {{forecast.num_days}}</li>
-<li>Average good components per day: {{forecast.avg_good_per_day | round(2)}}</li>
-<li>Remaining good components until goal: {{forecast.remaining_good}}</li>
-<li>Expected number of testing days until goal: {{forecast.expected_testing_days | round(2)}}</li>
-<li>Expected completion date: {{forecast.predicted_completion_date}}</li>
-</ul>
 
 <br>
 

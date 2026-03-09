@@ -2,6 +2,7 @@ import json
 import sqlite3
 from flask import Flask, render_template, request, redirect, url_for
 from datetime import datetime, timedelta
+import math
 
 app = Flask(__name__)
 
@@ -123,7 +124,6 @@ def submit():
 
 @app.route("/status/<component>")
 def status(component):
-
     rows = query_db(
         "SELECT * FROM tests WHERE component_type=? ORDER BY timestamp",
         (component,)
@@ -138,38 +138,44 @@ def status(component):
     goal = components[component]["goal"]
     progress = good / goal if goal else 0
 
+    # Count failure modes (bad + under investigation)
     failure_counts = {}
     for r in rows:
         if r["failure_mode"]:
             failure_counts[r["failure_mode"]] = failure_counts.get(r["failure_mode"], 0) + 1
 
     # --- Forecasting logic ---
+    from datetime import datetime, timedelta
+    import math
+
     if rows:
         first_ts = datetime.fromisoformat(rows[0]["timestamp"])
         last_ts = datetime.fromisoformat(rows[-1]["timestamp"])
     else:
         first_ts = last_ts = datetime.today()
 
-    # compute number of business days (Mon-Fri) excluding weekends
-    num_days = 0
-    for i in range((last_ts.date() - first_ts.date()).days + 1):
-        day = first_ts.date() + timedelta(days=i)
-        if day.weekday() < 5:  # 0=Mon, 6=Sun
-            num_days += 1
+    # Number of business days since first test
+    num_days = sum(1 for i in range((last_ts.date() - first_ts.date()).days + 1)
+                   if (first_ts.date() + timedelta(days=i)).weekday() < 5)
 
     avg_good_per_day = good / num_days if num_days else 0
     remaining_good = max(goal - good, 0)
-    expected_testing_days = remaining_good / avg_good_per_day if avg_good_per_day else 0
 
-    # project expected completion date skipping weekends
-    predicted_completion_date = datetime.today()
-    days_added = 0
-    while days_added < expected_testing_days:
-        predicted_completion_date += timedelta(days=1)
-        if predicted_completion_date.weekday() < 5:  # count only weekdays
-            days_added += 1
+    # Handle zero average gracefully
+    if avg_good_per_day > 0:
+        expected_testing_days = remaining_good / avg_good_per_day
+        # Project expected completion date skipping weekends
+        predicted_completion_date = datetime.today()
+        days_added = 0
+        while days_added < expected_testing_days:
+            predicted_completion_date += timedelta(days=1)
+            if predicted_completion_date.weekday() < 5:
+                days_added += 1
+        predicted_completion_date = predicted_completion_date.date()
+    else:
+        expected_testing_days = math.nan
+        predicted_completion_date = "NaN"
 
-    # prepare all quantities for template
     forecast_data = {
         "total_good": good,
         "first_day": first_ts.date(),
@@ -177,7 +183,7 @@ def status(component):
         "avg_good_per_day": avg_good_per_day,
         "remaining_good": remaining_good,
         "expected_testing_days": expected_testing_days,
-        "predicted_completion_date": predicted_completion_date.date()
+        "predicted_completion_date": predicted_completion_date
     }
 
     return render_template(
@@ -191,9 +197,83 @@ def status(component):
         goal=goal,
         progress=progress,
         failures=failure_counts,
-        rows=[dict(r) for r in rows],  # convert for JSON
+        rows=[dict(r) for r in rows],
         forecast=forecast_data
     )
+
+# @app.route("/status/<component>")
+# def status(component):
+
+#     rows = query_db(
+#         "SELECT * FROM tests WHERE component_type=? ORDER BY timestamp",
+#         (component,)
+#     )
+
+#     total = len(rows)
+#     good = sum(r["status"] == "good" for r in rows)
+#     bad = sum(r["status"] == "bad" for r in rows)
+#     investigation = sum(r["status"] == "under investigation" for r in rows)
+#     yield_estimate = good / total if total else 0
+
+#     goal = components[component]["goal"]
+#     progress = good / goal if goal else 0
+
+#     failure_counts = {}
+#     for r in rows:
+#         if r["failure_mode"]:
+#             failure_counts[r["failure_mode"]] = failure_counts.get(r["failure_mode"], 0) + 1
+
+#     # --- Forecasting logic ---
+#     if rows:
+#         first_ts = datetime.fromisoformat(rows[0]["timestamp"])
+#         last_ts = datetime.fromisoformat(rows[-1]["timestamp"])
+#     else:
+#         first_ts = last_ts = datetime.today()
+
+#     # compute number of business days (Mon-Fri) excluding weekends
+#     num_days = 0
+#     for i in range((last_ts.date() - first_ts.date()).days + 1):
+#         day = first_ts.date() + timedelta(days=i)
+#         if day.weekday() < 5:  # 0=Mon, 6=Sun
+#             num_days += 1
+
+#     avg_good_per_day = good / num_days if num_days else 0
+#     remaining_good = max(goal - good, 0)
+#     expected_testing_days = remaining_good / avg_good_per_day if avg_good_per_day else 0
+
+#     # project expected completion date skipping weekends
+#     predicted_completion_date = datetime.today()
+#     days_added = 0
+#     while days_added < expected_testing_days:
+#         predicted_completion_date += timedelta(days=1)
+#         if predicted_completion_date.weekday() < 5:  # count only weekdays
+#             days_added += 1
+
+#     # prepare all quantities for template
+#     forecast_data = {
+#         "total_good": good,
+#         "first_day": first_ts.date(),
+#         "num_days": num_days,
+#         "avg_good_per_day": avg_good_per_day,
+#         "remaining_good": remaining_good,
+#         "expected_testing_days": expected_testing_days,
+#         "predicted_completion_date": predicted_completion_date.date()
+#     }
+
+#     return render_template(
+#         "status.html",
+#         component=component,
+#         total=total,
+#         good=good,
+#         bad=bad,
+#         investigation=investigation,
+#         yield_estimate=yield_estimate,
+#         goal=goal,
+#         progress=progress,
+#         failures=failure_counts,
+#         rows=[dict(r) for r in rows],  # convert for JSON
+#         forecast=forecast_data
+#     )
 
 # @app.route("/status/<component>")
 # def status(component):
