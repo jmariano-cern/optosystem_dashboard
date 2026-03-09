@@ -1,6 +1,7 @@
 import json
 import sqlite3
 from flask import Flask, render_template, request, redirect, url_for
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -129,40 +130,114 @@ def status(component):
     )
 
     total = len(rows)
-
     good = sum(r["status"] == "good" for r in rows)
     bad = sum(r["status"] == "bad" for r in rows)
     investigation = sum(r["status"] == "under investigation" for r in rows)
-
     yield_estimate = good / total if total else 0
 
     goal = components[component]["goal"]
     progress = good / goal if goal else 0
 
     failure_counts = {}
-
     for r in rows:
         if r["failure_mode"]:
-            failure_counts[r["failure_mode"]] = \
-                failure_counts.get(r["failure_mode"], 0) + 1
+            failure_counts[r["failure_mode"]] = failure_counts.get(r["failure_mode"], 0) + 1
+
+    # --- Forecasting logic ---
+    if rows:
+        first_ts = datetime.fromisoformat(rows[0]["timestamp"])
+        last_ts = datetime.fromisoformat(rows[-1]["timestamp"])
+    else:
+        first_ts = last_ts = datetime.today()
+
+    # compute number of business days (Mon-Fri) excluding weekends
+    num_days = 0
+    for i in range((last_ts.date() - first_ts.date()).days + 1):
+        day = first_ts.date() + timedelta(days=i)
+        if day.weekday() < 5:  # 0=Mon, 6=Sun
+            num_days += 1
+
+    avg_good_per_day = good / num_days if num_days else 0
+    remaining_good = max(goal - good, 0)
+    expected_testing_days = remaining_good / avg_good_per_day if avg_good_per_day else 0
+
+    # project expected completion date skipping weekends
+    predicted_completion_date = datetime.today()
+    days_added = 0
+    while days_added < expected_testing_days:
+        predicted_completion_date += timedelta(days=1)
+        if predicted_completion_date.weekday() < 5:  # count only weekdays
+            days_added += 1
+
+    # prepare all quantities for template
+    forecast_data = {
+        "total_good": good,
+        "first_day": first_ts.date(),
+        "num_days": num_days,
+        "avg_good_per_day": avg_good_per_day,
+        "remaining_good": remaining_good,
+        "expected_testing_days": expected_testing_days,
+        "predicted_completion_date": predicted_completion_date.date()
+    }
 
     return render_template(
         "status.html",
-
         component=component,
-
         total=total,
         good=good,
         bad=bad,
         investigation=investigation,
-
         yield_estimate=yield_estimate,
         goal=goal,
         progress=progress,
-
         failures=failure_counts,
-        rows=[dict(r) for r in rows]  # convert for JSON
+        rows=[dict(r) for r in rows],  # convert for JSON
+        forecast=forecast_data
     )
+
+# @app.route("/status/<component>")
+# def status(component):
+
+#     rows = query_db(
+#         "SELECT * FROM tests WHERE component_type=? ORDER BY timestamp",
+#         (component,)
+#     )
+
+#     total = len(rows)
+
+#     good = sum(r["status"] == "good" for r in rows)
+#     bad = sum(r["status"] == "bad" for r in rows)
+#     investigation = sum(r["status"] == "under investigation" for r in rows)
+
+#     yield_estimate = good / total if total else 0
+
+#     goal = components[component]["goal"]
+#     progress = good / goal if goal else 0
+
+#     failure_counts = {}
+
+#     for r in rows:
+#         if r["failure_mode"]:
+#             failure_counts[r["failure_mode"]] = \
+#                 failure_counts.get(r["failure_mode"], 0) + 1
+
+#     return render_template(
+#         "status.html",
+
+#         component=component,
+
+#         total=total,
+#         good=good,
+#         bad=bad,
+#         investigation=investigation,
+
+#         yield_estimate=yield_estimate,
+#         goal=goal,
+#         progress=progress,
+
+#         failures=failure_counts,
+#         rows=[dict(r) for r in rows]  # convert for JSON
+#     )
 
 # -------------------------
 # LIST COMPONENT TESTS
@@ -179,31 +254,64 @@ def list_component(component):
         failure_modes=failure_modes.get(component, [])
     )
 
-
 # -------------------------
 # UPDATE TEST ENTRY
 # -------------------------
+
 @app.route("/update_test/<int:test_id>", methods=["POST"])
 def update_test(test_id):
-    # Get updated fields from form
     serial = request.form["serial"]
     status = request.form["status"]
     tester = request.form["tester"]
     failure_mode = request.form.get("failure_mode")
 
-    # Update database
     execute_db("""
         UPDATE tests
         SET serial_number=?, status=?, tester=?, failure_mode=?
         WHERE id=?
     """, (serial, status, tester, failure_mode, test_id))
 
-    # Redirect back to list page for the same component
-    # First, fetch component type of updated row
+    # Get component type
     row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,))
     component = row[0]["component_type"] if row else "Unknown"
 
-    return redirect(url_for("list_component", component=component))
+    # Simple feedback message
+    message = f"Test ID {test_id} updated successfully."
+
+    # Redirect back to the list page with message via query string
+    return redirect(url_for("list_component", component=component, message=message))
+
+@app.route("/delete_test/<int:test_id>", methods=["POST"])
+def delete_test(test_id):
+    row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,))
+    component = row[0]["component_type"] if row else "Unknown"
+
+    execute_db("DELETE FROM tests WHERE id=?", (test_id,))
+
+    message = f"Test ID {test_id} deleted successfully."
+    return redirect(url_for("list_component", component=component, message=message))
+
+# @app.route("/update_test/<int:test_id>", methods=["POST"])
+# def update_test(test_id):
+#     # Get updated fields from form
+#     serial = request.form["serial"]
+#     status = request.form["status"]
+#     tester = request.form["tester"]
+#     failure_mode = request.form.get("failure_mode")
+
+#     # Update database
+#     execute_db("""
+#         UPDATE tests
+#         SET serial_number=?, status=?, tester=?, failure_mode=?
+#         WHERE id=?
+#     """, (serial, status, tester, failure_mode, test_id))
+
+#     # Redirect back to list page for the same component
+#     # First, fetch component type of updated row
+#     row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,))
+#     component = row[0]["component_type"] if row else "Unknown"
+
+#     return redirect(url_for("list_component", component=component))
 
 # -------------------------
 # RUN SERVER

@@ -4,6 +4,18 @@
 <head>
 <title>{{component}} Status</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+table { border-collapse: collapse; }
+th, td { border: 1px solid black; padding: 5px; }
+
+/* Pie chart sizing */
+.chart-container {
+    width: 200px;
+    height: 200px;
+    display: inline-block;
+    vertical-align: top;
+}
+</style>
 </head>
 
 <body>
@@ -19,14 +31,11 @@
 <b>Under investigation:</b> {{investigation}} <br>
 
 <br>
-
 <b>Yield:</b> {{ (yield_estimate*100)|round(2) }} %
-
 <br><br>
 
 <h3>Production Goal</h3>
 Goal: {{goal}} good components
-
 <div style="width:400px;border:1px solid black">
   <div style="width:{{ (progress*100)|round(1) }}%;background:green;color:white">
     {{ (progress*100)|round(1) }} %
@@ -36,12 +45,14 @@ Goal: {{goal}} good components
 <br>
 
 <h2>Status Composition</h2>
-<canvas id="statusPie" width="300" height="300"></canvas>
-
-<br>
+<div class="chart-container">
+    <canvas id="statusPie"></canvas>
+</div>
 
 <h2>Failure Mode Breakdown (Bad + Under Investigation)</h2>
-<canvas id="failurePie" width="300" height="300"></canvas>
+<div class="chart-container">
+    <canvas id="failurePie"></canvas>
+</div>
 
 <br>
 
@@ -62,17 +73,57 @@ Goal: {{goal}} good components
 <br>
 
 <h3>Testing History</h3>
-<canvas id="historyChart"></canvas>
+<p>
+<a href="/list/{{component}}">View/Edit Full Test History for {{component}}</a>
+</p>
+
+<canvas id="historyChart" width="600" height="300"></canvas>
+
+<br>
+
+<h3>Production Forecast (Verification)</h3>
+<ul>
+<li>Total good components so far: {{forecast.total_good}}</li>
+<li>First day of testing: {{forecast.first_day}}</li>
+<li>Total number of business days since first test: {{forecast.num_days}}</li>
+<li>Average good components per day: {{forecast.avg_good_per_day | round(2)}}</li>
+<li>Remaining good components until goal: {{forecast.remaining_good}}</li>
+<li>Expected number of testing days until goal: {{forecast.expected_testing_days | round(2)}}</li>
+<li>Expected completion date: {{forecast.predicted_completion_date}}</li>
+</ul>
+
+<br>
+
+<h3>Recent Tests</h3>
+<table border="1">
+<tr>
+<th>Serial</th>
+<th>Status</th>
+<th>Tester</th>
+<th>Failure</th>
+<th>Time</th>
+</tr>
+
+{% for r in rows[-20:] %}
+<tr>
+<td>{{r.serial_number}}</td>
+<td>{{r.status}}</td>
+<td>{{r.tester}}</td>
+<td>{{r.failure_mode}}</td>
+<td>{{r.timestamp}}</td>
+</tr>
+{% endfor %}
+</table>
 
 <script>
 let rows = {{ rows | tojson }};
 let failures = {{ failures | tojson }};
 
 let labels = [];
-let total = [];
-let good = [];
-let bad = [];
-let inv = [];
+let total_arr = [];
+let good_arr = [];
+let bad_arr = [];
+let inv_arr = [];
 
 let t=0,g=0,b=0,i=0;
 
@@ -84,10 +135,10 @@ rows.forEach(r => {
 
     labels.push(r.timestamp);
 
-    total.push(t);
-    good.push(g);
-    bad.push(b);
-    inv.push(i);
+    total_arr.push(t);
+    good_arr.push(g);
+    bad_arr.push(b);
+    inv_arr.push(i);
 });
 
 /* ---------- history line chart ---------- */
@@ -96,10 +147,10 @@ new Chart(document.getElementById("historyChart"), {
     data:{
         labels: labels,
         datasets:[
-            {label:"Total", data:total, borderColor:"black", fill:false},
-            {label:"Good", data:good, borderColor:"green", fill:false},
-            {label:"Bad", data:bad, borderColor:"red", fill:false},
-            {label:"Under Investigation", data:inv, borderColor:"orange", fill:false}
+            {label:"Total", data:total_arr, borderColor:"black", fill:false},
+            {label:"Good", data:good_arr, borderColor:"green", fill:false},
+            {label:"Bad", data:bad_arr, borderColor:"red", fill:false},
+            {label:"Under Investigation", data:inv_arr, borderColor:"orange", fill:false}
         ]
     }
 });
@@ -143,32 +194,6 @@ new Chart(document.getElementById("failurePie"), {
     }
 });
 </script>
-
-<br>
-
-<p>
-<a href="/list/{{component}}">View/Edit Full Test History for {{component}}</a>
-</p>
-
-<h3>Recent Tests</h3>
-<table border="1">
-<tr>
-<th>Serial</th>
-<th>Status</th>
-<th>Tester</th>
-<th>Failure</th>
-<th>Time</th>
-</tr>
-{% for r in rows[-20:] %}
-<tr>
-<td>{{r.serial_number}}</td>
-<td>{{r.status}}</td>
-<td>{{r.tester}}</td>
-<td>{{r.failure_mode}}</td>
-<td>{{r.timestamp}}</td>
-</tr>
-{% endfor %}
-</table>
 
 </body>
 </html>
