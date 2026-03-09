@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>{{component}} Test History</title>
+<style>
+table { border-collapse: collapse; }
+th, td { border: 1px solid black; padding: 5px; }
+</style>
+</head>
+<body>
+
+<a href="/">Home</a> |
+<a href="/submit">Enter Test</a> |
+<a href="/status/{{component}}">Component Status</a>
+
+<h1>{{component}} Test History</h1>
+
+<table>
+<tr>
+<th>Serial</th>
+<th>Status</th>
+<th>Tester</th>
+<th>Failure Mode</th>
+<th>Timestamp</th>
+<th>Action</th>
+</tr>
+
+{% for r in rows %}
+<tr>
+<form method="POST" action="{{ url_for('update_test', test_id=r.id) }}">
+<td><input type="text" name="serial" value="{{r.serial_number}}"></td>
+
+<td>
+<select name="status">
+  <option value="good" {% if r.status=="good" %}selected{% endif %}>good</option>
+  <option value="bad" {% if r.status=="bad" %}selected{% endif %}>bad</option>
+  <option value="under investigation" {% if r.status=="under investigation" %}selected{% endif %}>under investigation</option>
+</select>
+</td>
+
+<td>
+<select name="tester">
+{% for t in testers %}
+<option value="{{t}}" {% if r.tester==t %}selected{% endif %}>{{t}}</option>
+{% endfor %}
+</select>
+</td>
+
+<td>
+<select name="failure_mode">
+  <option value="">None</option>
+  {% for f in failure_modes %}
+  <option value="{{f}}" {% if r.failure_mode==f %}selected{% endif %}>{{f}}</option>
+  {% endfor %}
+</select>
+</td>
+
+<td>{{r.timestamp}}</td>
+<td><button type="submit">Update</button></td>
+</form>
+</tr>
+{% endfor %}
+
+</table>
+
+</body>
+</html>

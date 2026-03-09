@@ -54,12 +54,33 @@ def execute_db(query, args=()):
 
 @app.route("/")
 def index():
+    # Build summary stats for each component
+    summary = {}
+    for comp in components:
+        rows = query_db("SELECT * FROM tests WHERE component_type=?", (comp,))
+        total = len(rows)
+        good = sum(r["status"]=="good" for r in rows)
+        bad = sum(r["status"]=="bad" for r in rows)
+        investigation = sum(r["status"]=="under investigation" for r in rows)
+        yield_estimate = good / total if total else 0
+        goal = components[comp]["goal"]
+        progress = good / goal if goal else 0
+
+        summary[comp] = {
+            "total": total,
+            "good": good,
+            "bad": bad,
+            "investigation": investigation,
+            "yield_estimate": yield_estimate,
+            "goal": goal,
+            "progress": progress
+        }
 
     return render_template(
         "index.html",
-        components=components
+        components=components,
+        summary=summary
     )
-
 
 # -------------------------
 # SUBMIT PAGE
@@ -143,6 +164,46 @@ def status(component):
         rows=[dict(r) for r in rows]  # convert for JSON
     )
 
+# -------------------------
+# LIST COMPONENT TESTS
+# -------------------------
+@app.route("/list/<component>")
+def list_component(component):
+    # Fetch all tests for this component
+    rows = query_db("SELECT * FROM tests WHERE component_type=? ORDER BY timestamp DESC", (component,))
+    return render_template(
+        "list_component.html",
+        component=component,
+        rows=[dict(r) for r in rows],
+        testers=testers,
+        failure_modes=failure_modes.get(component, [])
+    )
+
+
+# -------------------------
+# UPDATE TEST ENTRY
+# -------------------------
+@app.route("/update_test/<int:test_id>", methods=["POST"])
+def update_test(test_id):
+    # Get updated fields from form
+    serial = request.form["serial"]
+    status = request.form["status"]
+    tester = request.form["tester"]
+    failure_mode = request.form.get("failure_mode")
+
+    # Update database
+    execute_db("""
+        UPDATE tests
+        SET serial_number=?, status=?, tester=?, failure_mode=?
+        WHERE id=?
+    """, (serial, status, tester, failure_mode, test_id))
+
+    # Redirect back to list page for the same component
+    # First, fetch component type of updated row
+    row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,))
+    component = row[0]["component_type"] if row else "Unknown"
+
+    return redirect(url_for("list_component", component=component))
 
 # -------------------------
 # RUN SERVER

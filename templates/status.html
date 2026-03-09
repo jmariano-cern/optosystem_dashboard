@@ -2,11 +2,8 @@
 <html>
 
 <head>
-
 <title>{{component}} Status</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 
 <body>
@@ -28,108 +25,133 @@
 <br><br>
 
 <h3>Production Goal</h3>
-
 Goal: {{goal}} good components
 
 <div style="width:400px;border:1px solid black">
-
-<div style="width:{{ (progress*100)|round(1) }}%;background:green;color:white">
-
-{{ (progress*100)|round(1) }} %
-
-</div>
-
+  <div style="width:{{ (progress*100)|round(1) }}%;background:green;color:white">
+    {{ (progress*100)|round(1) }} %
+  </div>
 </div>
 
 <br>
 
-<h3>Failure Modes</h3>
+<h2>Status Composition</h2>
+<canvas id="statusPie" width="300" height="300"></canvas>
 
+<br>
+
+<h2>Failure Mode Breakdown (Bad + Under Investigation)</h2>
+<canvas id="failurePie" width="300" height="300"></canvas>
+
+<br>
+
+<h3>Failure Modes Table</h3>
 <table border="1">
-
 <tr>
 <th>Failure Mode</th>
 <th>Count</th>
 </tr>
-
 {% for f,c in failures.items() %}
-
 <tr>
 <td>{{f}}</td>
 <td>{{c}}</td>
 </tr>
-
 {% endfor %}
-
 </table>
 
 <br>
 
 <h3>Testing History</h3>
-
 <canvas id="historyChart"></canvas>
 
 <script>
+let rows = {{ rows | tojson }};
+let failures = {{ failures | tojson }};
 
-let rows = {{ rows | tojson }}
+let labels = [];
+let total = [];
+let good = [];
+let bad = [];
+let inv = [];
 
-let labels = []
-let total = []
-let good = []
-let bad = []
-let inv = []
-
-let t=0,g=0,b=0,i=0
+let t=0,g=0,b=0,i=0;
 
 rows.forEach(r => {
+    t++;
+    if(r.status=="good") g++;
+    if(r.status=="bad") b++;
+    if(r.status=="under investigation") i++;
 
-    t++
+    labels.push(r.timestamp);
 
-    if(r.status=="good") g++
-    if(r.status=="bad") b++
-    if(r.status=="under investigation") i++
+    total.push(t);
+    good.push(g);
+    bad.push(b);
+    inv.push(i);
+});
 
-    labels.push(r.timestamp)
-
-    total.push(t)
-    good.push(g)
-    bad.push(b)
-    inv.push(i)
-
-})
-
+/* ---------- history line chart ---------- */
 new Chart(document.getElementById("historyChart"), {
+    type:'line',
+    data:{
+        labels: labels,
+        datasets:[
+            {label:"Total", data:total, borderColor:"black", fill:false},
+            {label:"Good", data:good, borderColor:"green", fill:false},
+            {label:"Bad", data:bad, borderColor:"red", fill:false},
+            {label:"Under Investigation", data:inv, borderColor:"orange", fill:false}
+        ]
+    }
+});
 
-type:'line',
+/* ---------- status composition pie ---------- */
+new Chart(document.getElementById("statusPie"), {
+    type: 'pie',
+    data: {
+        labels: ["Good","Bad","Under Investigation"],
+        datasets: [{
+            data: [{{good}}, {{bad}}, {{investigation}}],
+            backgroundColor: ["green", "red", "orange"]
+        }]
+    }
+});
 
-data:{
+/* ---------- failure mode pie (bad + under investigation only) ---------- */
+let filteredRows = rows.filter(r => (r.status=="bad" || r.status=="under investigation") && r.failure_mode);
 
-labels:labels,
+let failureCounts = {};
+filteredRows.forEach(r => {
+    if(r.failure_mode){
+        if(failureCounts[r.failure_mode]){
+            failureCounts[r.failure_mode] +=1;
+        } else {
+            failureCounts[r.failure_mode] =1;
+        }
+    }
+});
 
-datasets:[
+let failureLabels = Object.keys(failureCounts);
+let failureData = Object.values(failureCounts);
 
-{label:"Total",data:total},
-
-{label:"Good",data:good},
-
-{label:"Bad",data:bad},
-
-{label:"Under Investigation",data:inv}
-
-]
-
-}
-
-})
-
+new Chart(document.getElementById("failurePie"), {
+    type: 'pie',
+    data: {
+        labels: failureLabels,
+        datasets: [{
+            data: failureData
+        }]
+    }
+});
 </script>
 
 <br>
 
+<p>
+<a href="/list/{{component}}">View/Edit Full Test History for {{component}}</a>
+</p>
+
 <h3>Recent Tests</h3>
-
 <table border="1">
-
 <tr>
 <th>Serial</th>
 <th>Status</th>
@@ -137,9 +159,7 @@ datasets:[
 <th>Failure</th>
 <th>Time</th>
 </tr>
-
 {% for r in rows[-20:] %}
-
 <tr>
 <td>{{r.serial_number}}</td>
 <td>{{r.status}}</td>
@@ -147,11 +167,8 @@ datasets:[
 <td>{{r.failure_mode}}</td>
 <td>{{r.timestamp}}</td>
 </tr>
-
 {% endfor %}
-
 </table>
 
 </body>
-
 </html>

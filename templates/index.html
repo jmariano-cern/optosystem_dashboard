@@ -1,24 +1,73 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 <title>Component Testing Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.component-card {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 20px;
+    display: inline-block;
+    vertical-align: top;
+    width: 300px;
+}
+.progress-bar-container {
+    width: 100%;
+    background: #eee;
+    border: 1px solid #999;
+}
+.progress-bar {
+    height: 20px;
+    text-align: center;
+    color: white;
+}
+</style>
 </head>
 
 <body>
 
-<h1>Component Testing Dashboard</h1>
+<h1>Project Overview</h1>
 
-<h2>Status Pages</h2>
+{% for comp, data in summary.items() %}
+<div class="component-card">
+  <h3>{{comp}}</h3>
+  <b>Total Good:</b> {{data.good}} / {{data.total}}<br>
+  <b>Yield:</b> {{(data.yield_estimate*100)|round(2)}} %<br><br>
 
-<ul>
-{% for c in components %}
-<li>
-<a href="/status/{{c}}">{{c}}</a>
-</li>
+  <!-- Progress bar -->
+  <div class="progress-bar-container">
+    <div class="progress-bar" style="width:{{(data.progress*100)|round(1)}}%;background:green">
+      {{(data.progress*100)|round(1)}} %
+    </div>
+  </div>
+
+  <br>
+
+  <!-- Status composition pie chart -->
+  <canvas id="pie-{{comp}}" width="250" height="250"></canvas>
+
+  <br>
+  <a href="/status/{{comp}}">Go to {{comp}} Status Page</a>
+</div>
 {% endfor %}
-</ul>
 
-<h2>Actions</h2>
+<script>
+// Draw the pie charts
+{% for comp, data in summary.items() %}
+new Chart(document.getElementById("pie-{{comp}}"), {
+    type: 'pie',
+    data: {
+        labels: ["Good","Bad","Under Investigation"],
+        datasets: [{
+            data: [{{data.good}}, {{data.bad}}, {{data.investigation}}],
+            backgroundColor: ["green","red","orange"]
+        }]
+    }
+});
+{% endfor %}
+</script>
 
 <a href="/submit">Enter Test Result</a>
 
