@@ -1,0 +1,14 @@
+{
+  "Optoboard": {
+    "goal": 2000
+  },
+  "Optobox": {
+    "goal": 1500
+  },
+  "Connectorboard": {
+    "goal": 2500
+  },
+  "Powerboard": {
+    "goal": 1800
+  }
+}

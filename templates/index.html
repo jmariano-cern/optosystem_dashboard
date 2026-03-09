@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Component Testing Dashboard</title>
+</head>
+
+<body>
+
+<h1>Component Testing Dashboard</h1>
+
+<h2>Status Pages</h2>
+
+<ul>
+{% for c in components %}
+<li>
+<a href="/status/{{c}}">{{c}}</a>
+</li>
+{% endfor %}
+</ul>
+
+<h2>Actions</h2>
+
+<a href="/submit">Enter Test Result</a>
+
+</body>
+</html>

@@ -1,0 +1,49 @@
+<h1>Enter Test Result</h1>
+
+<form method="post">
+
+Component:
+<select name="component">
+{% for c in components %}
+<option value="{{c}}">{{c}}</option>
+{% endfor %}
+</select>
+
+<br>
+
+Serial Number:
+<input type="text" name="serial">
+
+<br>
+
+Tester:
+<select name="tester">
+{% for t in testers %}
+<option value="{{t}}">{{t}}</option>
+{% endfor %}
+</select>
+
+<br>
+
+Status:
+<select name="status">
+<option value="good">Good</option>
+<option value="bad">Bad</option>
+<option value="under_investigation">Under Investigation</option>
+</select>
+
+<br>
+
+Failure Mode:
+<select name="failure_mode">
+<option value="">None</option>
+{% for f in failures %}
+<option value="{{f}}">{{f}}</option>
+{% endfor %}
+</select>
+
+<br><br>
+
+<button type="submit">Submit</button>
+
+</form>
