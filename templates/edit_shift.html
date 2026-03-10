@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Edit Shift</title>
+</head>
+<body>
+
+<a href="/calendar">Back to Calendar</a>
+
+<h1>Edit Shift</h1>
+
+{% if message %}
+<p style="color:green;font-weight:bold;">{{ message }}</p>
+{% endif %}
+
+<form method="POST">
+    {% if shift %}
+        <p><strong>Component:</strong> {{ shift.component_type }}</p>
+        <p><strong>Date:</strong> {{ shift.date }}</p>
+        <p><strong>Shift:</strong> {{ shift.shift }}</p>
+    {% else %}
+        <!-- Hidden inputs for new shift -->
+        <input type="hidden" name="date" value="{{ request.args.get('date') }}">
+        <input type="hidden" name="shift" value="{{ request.args.get('shift') }}">
+        <input type="hidden" name="component" value="{{ request.args.get('component') }}">
+        <p><strong>Component:</strong> {{ request.args.get('component') }}</p>
+        <p><strong>Date:</strong> {{ request.args.get('date') }}</p>
+        <p><strong>Shift:</strong> {{ request.args.get('shift') }}</p>
+    {% endif %}
+
+    <p>
+        <label for="tester">Assign Tester:</label>
+        <select name="tester" id="tester">
+            <option value="">-- None --</option>
+            {% for t in testers %}
+                <option value="{{ t }}" {% if shift and shift.tester == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+        </select>
+    </p>
+
+    <button type="submit">Save</button>
+</form>
+
+</body>
+</html>

@@ -3,6 +3,8 @@ import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, g
 from datetime import datetime, timedelta
 import math
+import matplotlib.colors as mcolors
+
 
 app = Flask(__name__)
 
@@ -21,6 +23,45 @@ with open("config/testers.json") as f:
 with open("config/failure_modes.json") as f:
     failure_modes = json.load(f)
 
+def generate_week_shifts(start_date=None):
+    """
+    Generate a week-long calendar dict (Monday → Sunday) with morning/afternoon shifts
+    for all components. Pre-populate slots even if no one has signed up.
+    """
+    if start_date is None:
+        start_date = datetime.today()
+    
+    # Find Monday of the current week
+    monday = start_date - timedelta(days=start_date.weekday())
+    
+    week_days = [(monday + timedelta(days=i)).date() for i in range(7)]
+    
+    # Build empty calendar
+    calendar = {}
+    for d in week_days:
+        calendar[d.isoformat()] = {"morning": [], "afternoon": []}
+        for shift in ["morning", "afternoon"]:
+            for comp in components:
+                calendar[d.isoformat()][shift].append({
+                    "component": comp,
+                    "tester": None,  # no one signed up yet
+                    "id": None       # will be filled from db if exists
+                })
+    
+    # Overlay actual shift data from DB
+    rows = query_db("SELECT * FROM shifts")
+    for r in rows:
+        d = r["date"]
+        shift = r["shift"]
+        comp = r["component_type"]
+        if d in calendar:
+            for slot in calendar[d][shift]:
+                if slot["component"] == comp:
+                    slot["tester"] = r["tester"]
+                    slot["id"] = r["id"]
+    
+    return calendar, week_days
+    
 # -------------------------
 # DATABASE HELPERS
 # -------------------------
@@ -651,6 +692,154 @@ def tester_dashboard():
 #         components=components,
 #         tester_summary=tester_summary
 #     )
+
+# @app.route("/calendar")
+# def calendar_page():
+#     # --- 1. Define the week to display (current week Monday-Sunday) ---
+#     today = date.today()
+#     start_of_week = today - timedelta(days=today.weekday())  # Monday
+#     days = [(start_of_week + timedelta(days=i)) for i in range(7)]
+#     day_strs = [d.isoformat() for d in days]  # e.g., "2026-03-10"
+
+#     # --- 2. Fetch existing shifts ---
+#     rows = query_db(
+#         "SELECT * FROM shifts WHERE date BETWEEN ? AND ?",
+#         (day_strs[0], day_strs[-1])
+#     )
+
+#     # --- 3. Build a mapping from (date, shift, component) -> tester ---
+#     db_map = {}
+#     for r in rows:
+#         key = (r["date"], r["shift"], r["component_type"])
+#         db_map[key] = {"tester": r["tester"], "id": r["id"]}
+
+#     # --- 4. Pre-fill calendar with all components / shifts ---
+#     calendar = {}
+#     for d in day_strs:
+#         calendar[d] = {"morning": [], "afternoon": []}
+#         for shift in ["morning", "afternoon"]:
+#             for comp in components:
+#                 key = (d, shift, comp)
+#                 if key in db_map:
+#                     calendar[d][shift].append({
+#                         "component": comp,
+#                         "tester": db_map[key]["tester"],
+#                         "id": db_map[key]["id"]
+#                     })
+#                 else:
+#                     calendar[d][shift].append({
+#                         "component": comp,
+#                         "tester": None,
+#                         "id": None  # No DB row yet
+#                     })
+
+#     # --- 5. Assign colors to components ---
+#     import matplotlib.colors as mcolors
+#     palette = list(mcolors.TABLEAU_COLORS.values())
+#     component_colors = {comp: palette[i % len(palette)] for i, comp in enumerate(components)}
+
+#     return render_template(
+#         "calendar.html",
+#         calendar=calendar,
+#         days=day_strs,
+#         components=components,
+#         component_colors=component_colors
+#     )
+
+@app.route("/calendar")
+def calendar_page():
+    from datetime import date, timedelta
+
+    start_date = date.today()
+    days = [(start_date + timedelta(days=i)) for i in range(7)]
+    day_strs = [d.strftime("%Y-%m-%d") for d in days]
+
+    # Ensure every component, shift, and day has a row in the DB
+    for d in day_strs:
+        for shift in ["morning", "afternoon"]:
+            for comp in components:
+                existing = query_db(
+                    "SELECT id FROM shifts WHERE date=? AND shift=? AND component_type=?",
+                    (d, shift, comp),
+                    one=True
+                )
+                if not existing:
+                    execute_db(
+                        "INSERT INTO shifts (date, shift, component_type, tester) VALUES (?, ?, ?, ?)",
+                        (d, shift, comp, None)
+                    )
+
+    # Fetch all shifts
+    rows = query_db("SELECT * FROM shifts ORDER BY date, shift, component_type")
+
+    # Build calendar dict
+    calendar = {d: {"morning": {}, "afternoon": {}} for d in day_strs}
+    for r in rows:
+        d = r["date"]
+        shift = r["shift"]
+        comp = r["component_type"]
+        calendar[d][shift][comp] = {
+            "tester": r["tester"],
+            "id": r["id"]
+        }
+
+    # Assign colors
+    base_colors = ["#ffcccc", "#ccffcc", "#ccccff", "#fff0cc", "#ffccff", "#ccffff"]
+    dark_colors = ["#cc4444", "#44cc44", "#4444cc", "#ffaa00", "#aa00aa", "#00aaaa"]
+    component_colors = {}
+    for idx, comp in enumerate(components):
+        component_colors[comp] = {"open": base_colors[idx % len(base_colors)],
+                                   "staffed": dark_colors[idx % len(dark_colors)]}
+
+    return render_template(
+        "calendar.html",
+        calendar=calendar,
+        days=day_strs,
+        components=components,
+        component_colors=component_colors
+    )
+
+@app.route("/shift/<int:shift_id>", methods=["GET", "POST"])
+def edit_shift(shift_id):
+    # Fetch the shift row from DB if it exists
+    row = query_db(
+        "SELECT * FROM shifts WHERE id=?",
+        (shift_id,),
+        one=True
+    )
+
+    if request.method == "POST":
+        tester = request.form.get("tester", "").strip() or None
+
+        if row:
+            # Update existing shift
+            execute_db(
+                "UPDATE shifts SET tester=? WHERE id=?",
+                (tester, shift_id)
+            )
+            message = f"Shift updated successfully for {row['component_type']} on {row['date']} ({row['shift']})"
+        else:
+            # Insert new shift if it didn't exist
+            # Expect hidden fields to provide date, shift, component
+            date_val = request.form["date"]
+            shift_val = request.form["shift"]
+            component_val = request.form["component"]
+
+            execute_db(
+                "INSERT INTO shifts (date, shift, component_type, tester) VALUES (?, ?, ?, ?)",
+                (date_val, shift_val, component_val, tester)
+            )
+            message = f"Shift created successfully for {component_val} on {date_val} ({shift_val})"
+
+        return redirect("/calendar")
+
+    # GET request: render form
+    return render_template(
+        "edit_shift.html",
+        shift=row,
+        testers=testers,
+        message=None
+    )
 
 # -------------------------
 # RUN SERVER

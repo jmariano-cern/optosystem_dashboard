@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Testing Shift Calendar</title>
+<style>
+body { font-family: Arial, sans-serif; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid black; vertical-align: top; padding: 6px; width: 14%; }
+th { background: #eee; }
+.shift-label { font-weight: bold; width: 100px; }
+.component-slot { margin: 4px 0; padding: 4px; border-radius: 4px; }
+a.shift-link { text-decoration: none; color: black; display: block; }
+.component-name { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<a href="/">Home</a> |
+<a href="/submit">Enter Test</a> |
+<a href="/tester_dashboard">Tester Dashboard</a>
+
+<h1>Testing Shift Calendar</h1>
+
+<table>
+<tr>
+<th></th>
+{% for d in days %}
+<th>{{ d }}</th>
+{% endfor %}
+</tr>
+
+<!-- Morning row -->
+<tr>
+<td class="shift-label">Morning</td>
+{% for d in days %}
+<td>
+  {% for comp in components %}
+    {% set slot = calendar[d]["morning"].get(comp, {}) %}
+    {% set tester = slot.get("tester") %}
+    {% set shift_id = slot.get("id") %}
+    {% if tester %}
+      {% set bg = component_colors[comp]["staffed"] %}
+    {% else %}
+      {% set bg = component_colors[comp]["open"] %}
+    {% endif %}
+    <div class="component-slot" style="background-color: {{ bg }};">
+      {% if shift_id %}
+      <a class="shift-link" href="/shift/{{ shift_id }}">
+      {% endif %}
+        <span class="component-name">{{ comp }}</span><br>
+        {% if tester %}{{ tester }}{% else %}OPEN{% endif %}
+      {% if shift_id %}
+      </a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</td>
+{% endfor %}
+</tr>
+
+<!-- Afternoon row -->
+<tr>
+<td class="shift-label">Afternoon</td>
+{% for d in days %}
+<td>
+  {% for comp in components %}
+    {% set slot = calendar[d]["afternoon"].get(comp, {}) %}
+    {% set tester = slot.get("tester") %}
+    {% set shift_id = slot.get("id") %}
+    {% if tester %}
+      {% set bg = component_colors[comp]["staffed"] %}
+    {% else %}
+      {% set bg = component_colors[comp]["open"] %}
+    {% endif %}
+    <div class="component-slot" style="background-color: {{ bg }};">
+      {% if shift_id %}
+      <a class="shift-link" href="/shift/{{ shift_id }}">
+      {% endif %}
+        <span class="component-name">{{ comp }}</span><br>
+        {% if tester %}{{ tester }}{% else %}OPEN{% endif %}
+      {% if shift_id %}
+      </a>
+      {% endif %}
+    </div>
+  {% endfor %}
+</td>
+{% endfor %}
+</tr>
+
+</table>
+</body>
+</html>
