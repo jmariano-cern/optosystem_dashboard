@@ -1,199 +1,204 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-<title>{{component}} Status</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-table { border-collapse: collapse; }
-th, td { border: 1px solid black; padding: 5px; }
-
-/* Pie chart sizing */
-.chart-container {
-    width: 200px;
-    height: 200px;
-    display: inline-block;
-    vertical-align: top;
-}
-</style>
-</head>
-
-<body>
-
-<a href="/">Home</a> |
-<a href="/submit">Enter Test</a>
-
-<h1>{{component}} Status</h1>
-
-<b>Total tested:</b> {{total}} <br>
-<b>Good:</b> {{good}} <br>
-<b>Bad:</b> {{bad}} <br>
-<b>Under investigation:</b> {{investigation}} <br>
-
-<br>
-<b>Yield:</b> {{ (yield_estimate*100)|round(2) }} %
-<br><br>
-
-<h3>Production Goal</h3>
-Goal: {{goal}} good components
-<div style="width:400px;border:1px solid black">
-  <div style="width:{{ (progress*100)|round(1) }}%;background:green;color:white">
-    {{ (progress*100)|round(1) }} %
-  </div>
-</div>
-
-<br>
-
-<h3>Production Forecast</h3>
-<ul>
-<li>Total good components so far: {{forecast.total_good}}</li>
-<li>First day of testing: {{forecast.first_day}}</li>
-<li>Total number of business days since first test: {{forecast.num_days}}</li>
-<li>Average good components per day: {{forecast.avg_good_per_day | round(2)}}</li>
-<li>Remaining good components until goal: {{forecast.remaining_good}}</li>
-<li>Expected number of testing days until goal: {{forecast.expected_testing_days | round(2)}}</li>
-<li>Expected completion date: {{forecast.predicted_completion_date}}</li>
-</ul>
-
-<br>
-
-<h2>Status Composition</h2>
-<div class="chart-container">
-    <canvas id="statusPie"></canvas>
-</div>
-
-<h2>Failure Mode Breakdown (Bad + Under Investigation)</h2>
-<div class="chart-container">
-    <canvas id="failurePie"></canvas>
-</div>
-
-<br>
-
-<h3>Failure Modes Table</h3>
-<table border="1">
-<tr>
-<th>Failure Mode</th>
-<th>Count</th>
-</tr>
-{% for f,c in failures.items() %}
-<tr>
-<td>{{f}}</td>
-<td>{{c}}</td>
-</tr>
-{% endfor %}
-</table>
-
-<br>
-
-<h3>Testing History</h3>
-<p>
-<a href="/list/{{component}}">View/Edit Full Test History for {{component}}</a>
-</p>
-
-<canvas id="historyChart" width="600" height="300"></canvas>
-
-<br>
-
-<h3>Recent Tests</h3>
-<table border="1">
-<tr>
-<th>Serial</th>
-<th>Status</th>
-<th>Tester</th>
-<th>Failure</th>
-<th>Time</th>
-</tr>
-
-{% for r in rows[-20:] %}
-<tr>
-<td>{{r.serial_number}}</td>
-<td>{{r.status}}</td>
-<td>{{r.tester}}</td>
-<td>{{r.failure_mode}}</td>
-<td>{{r.timestamp}}</td>
-</tr>
-{% endfor %}
-</table>
-
-<script>
-let rows = {{ rows | tojson }};
-let failures = {{ failures | tojson }};
-
-let labels = [];
-let total_arr = [];
-let good_arr = [];
-let bad_arr = [];
-let inv_arr = [];
-
-let t=0,g=0,b=0,i=0;
-
-rows.forEach(r => {
-    t++;
-    if(r.status=="good") g++;
-    if(r.status=="bad") b++;
-    if(r.status=="under investigation") i++;
-
-    labels.push(r.timestamp);
-
-    total_arr.push(t);
-    good_arr.push(g);
-    bad_arr.push(b);
-    inv_arr.push(i);
-});
-
-/* ---------- history line chart ---------- */
-new Chart(document.getElementById("historyChart"), {
-    type:'line',
-    data:{
-        labels: labels,
-        datasets:[
-            {label:"Total", data:total_arr, borderColor:"black", fill:false},
-            {label:"Good", data:good_arr, borderColor:"green", fill:false},
-            {label:"Bad", data:bad_arr, borderColor:"red", fill:false},
-            {label:"Under Investigation", data:inv_arr, borderColor:"orange", fill:false}
-        ]
-    }
-});
-
-/* ---------- status composition pie ---------- */
-new Chart(document.getElementById("statusPie"), {
-    type: 'pie',
-    data: {
-        labels: ["Good","Bad","Under Investigation"],
-        datasets: [{
-            data: [{{good}}, {{bad}}, {{investigation}}],
-            backgroundColor: ["green", "red", "orange"]
-        }]
-    }
-});
-
-/* ---------- failure mode pie (bad + under investigation only) ---------- */
-let filteredRows = rows.filter(r => (r.status=="bad" || r.status=="under investigation") && r.failure_mode);
-
-let failureCounts = {};
-filteredRows.forEach(r => {
-    if(r.failure_mode){
-        if(failureCounts[r.failure_mode]){
-            failureCounts[r.failure_mode] +=1;
-        } else {
-            failureCounts[r.failure_mode] =1;
+    <meta charset="UTF-8">
+    <title>{{ component }} Status</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
         }
-    }
-});
+        .chart-container {
+            width: 600px;
+            height: 300px;
+            margin-bottom: 40px;
+        }
+        .progress-bar-container {
+            width: 600px;
+            background-color: #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        /* .progress-bar { */
+        /*     height: 25px; */
+        /*     background-color: #4CAF50; */
+        /*     text-align: center; */
+        /*     color: white; */
+        /*     line-height: 25px; */
+        /*     border-radius: 5px; */
+        /* } */
+	.progress-bar {
+	    height: 25px;
+	    background-color: #4CAF50;
+	    text-align: center;
+	    color: black;           /* changed from white */
+	    line-height: 25px;
+	    border-radius: 5px;
+	    font-weight: bold;      /* optional for better readability */
+	}
+        .forecast {
+            margin-bottom: 20px;
+        }
+        .back-link {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Status for {{ component }}</h1>
+    <div class="back-link">
+        <a href="{{ url_for('index') }}">← Back to Main Page</a>
+    </div>
 
-let failureLabels = Object.keys(failureCounts);
-let failureData = Object.values(failureCounts);
+    <h2>Progress</h2>
+    <div class="progress-bar-container">
+      <div class="progress-bar" style="width: {{ progress }}%">
+        {{ (progress|round(1)) }}% ({{ forecast.total_good }}/{{ goal }})
+      </div>
+    </div>
+    <!-- <div class="progress-bar-container"> -->
+    <!--     <div class="progress-bar" style="width: {{ progress }}%"> -->
+    <!--         {{ progress }}% -->
+    <!--     </div> -->
+    <!-- </div> -->
 
-new Chart(document.getElementById("failurePie"), {
-    type: 'pie',
-    data: {
-        labels: failureLabels,
-        datasets: [{
-            data: failureData
-        }]
-    }
-});
-</script>
+    <br>
+    
+    <h2>Forecast / Completion Prediction</h2>
+    <div class="forecast">
+      <p>Total good components so far: {{ forecast.total_good }}</p>
+      <p>First day of testing: {{ forecast.first_day }}</p>
+      <p>Total days since start (excluding weekends): {{ forecast.num_days }}</p>
+      <p>Average good components per day: {{ forecast.avg_good_per_day }}</p>
+      <p>Remaining good components until goal: {{ forecast.remaining_good }}</p>
+      <p>Expected number of testing days until goal: {{ forecast.expected_testing_days }}</p>
+      <p>Expected completion date: {{ forecast.predicted_completion_date }}</p>      
+      <!-- <p>Total good components so far: {{ total_good }}</p> -->
+      <!-- <p>First day of testing: {{ first_day }}</p> -->
+      <!-- <p>Total days since start (excluding weekends): {{ total_days }}</p> -->
+      <!-- <p>Average good components per day: {{ avg_good_per_day }}</p> -->
+      <!-- <p>Remaining good components until goal: {{ remaining_good }}</p> -->
+      <!-- <p>Expected number of testing days until goal: {{ expected_days_until_goal }}</p> -->
+      <!-- <p>Expected completion date: {{ expected_completion_date }}</p> -->
+    </div>
 
+    <h2>Status Composition</h2>
+    <div class="chart-container">
+        <canvas id="statusPieChart"></canvas>
+    </div>
+
+    <h2>Failure Mode Breakdown</h2>
+    <div class="chart-container">
+        <canvas id="failurePieChart"></canvas>
+    </div>
+
+    <h2>Testing History</h2>
+    <div class="chart-container">
+        <canvas id="historyChart"></canvas>
+    </div>
+
+    <!-- Link to full test history / list component page -->
+    <p style="margin-top: 5px;">
+      <a href="{{ url_for('list_component', component=component) }}">View full test history</a>
+    </p>
+
+    <h2>Recent Tests</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Serial Number</th>
+                <th>Tester</th>
+                <th>Status</th>
+                <th>Failure Mode</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for row in recent_tests %}
+            <tr>
+                <td>{{ row.serial_number }}</td>
+                <td>{{ row.tester }}</td>
+                <td>{{ row.status }}</td>
+                <td>{{ row.failure_mode or '' }}</td>
+                <td>{{ row.timestamp }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        // Status composition pie chart
+        const ctxStatus = document.getElementById('statusPieChart').getContext('2d');
+        const statusPieChart = new Chart(ctxStatus, {
+            type: 'pie',
+            data: {
+                labels: ['Good', 'Under Investigation', 'Bad'],
+                datasets: [{
+                    data: [{{ status_counts['good'] }}, {{ status_counts['under investigation'] }}, {{ status_counts['bad'] }}],
+                    backgroundColor: ['green', 'orange', 'red']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Failure mode pie chart
+        const ctxFailure = document.getElementById('failurePieChart').getContext('2d');
+        const failurePieChart = new Chart(ctxFailure, {
+            type: 'pie',
+            data: {
+                labels: {{ failure_mode_counts.keys() | list | tojson }},
+                datasets: [{
+                    data: {{ failure_mode_counts.values() | list | tojson }},
+                    backgroundColor: {{ failure_mode_colors | tojson }}
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Testing history line chart (without total)
+        const ctxHistory = document.getElementById('historyChart').getContext('2d');
+        const historyChart = new Chart(ctxHistory, {
+            type: 'line',
+            data: {
+                labels: {{ history_dates | tojson }},
+                datasets: [
+                    {
+                        label: 'Good',
+                        data: {{ history_good | tojson }},
+                        borderColor: 'green',
+                        backgroundColor: 'rgba(0,128,0,0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Bad',
+                        data: {{ history_bad | tojson }},
+                        borderColor: 'red',
+                        backgroundColor: 'rgba(255,0,0,0.2)',
+                        fill: true
+                    },
+                    {
+                        label: 'Under Investigation',
+                        data: {{ history_under | tojson }},
+                        borderColor: 'orange',
+                        backgroundColor: 'rgba(255,165,0,0.2)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    </script>
 </body>
 </html>

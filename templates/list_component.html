@@ -3,8 +3,19 @@
 <head>
 <title>{{component}} Test History</title>
 <style>
-table { border-collapse: collapse; }
-th, td { border: 1px solid black; padding: 5px; }
+table { 
+    border-collapse: collapse; 
+    width: 100%;
+}
+th, td { 
+    border: 1px solid black; 
+    padding: 5px; 
+    text-align: left;
+}
+th { 
+    cursor: pointer; 
+    background-color: #f0f0f0;
+}
 form { margin: 0; } /* prevent extra spacing inside table cells */
 </style>
 </head>
@@ -21,62 +32,152 @@ form { margin: 0; } /* prevent extra spacing inside table cells */
   <p style="color: green; font-weight: bold;">{{ request.args.get('message') }}</p>
 {% endif %}
 
-<table>
+<table id="componentTable">
+<thead>
 <tr>
-<th>Serial</th>
-<th>Status</th>
-<th>Tester</th>
-<th>Failure Mode</th>
-<th>Timestamp</th>
+<th onclick="sortTable(0)">Serial &#x25B2;&#x25BC;</th>
+<th onclick="sortTable(1)">Status &#x25B2;&#x25BC;</th>
+<th onclick="sortTable(2)">Tester &#x25B2;&#x25BC;</th>
+<th onclick="sortTable(3)">Failure Mode &#x25B2;&#x25BC;</th>
+<th onclick="sortTable(4)">Timestamp &#x25B2;&#x25BC;</th>
 <th>Action</th>
 </tr>
-
+</thead>
+<tbody>
 {% for r in rows %}
 <tr>
-<!-- Update form -->
-<form method="POST" action="{{ url_for('update_test', test_id=r.id) }}">
-<td><input type="text" name="serial" value="{{r.serial_number}}"></td>
+<td data-sort="{{ r.serial_number }}">
+  <form method="POST" action="{{ url_for('update_test', test_id=r.id) }}">
+    <input type="text" name="serial" value="{{ r.serial_number }}">
+</td>
 
-<td>
-<select name="status">
-  <option value="good" {% if r.status=="good" %}selected{% endif %}>good</option>
-  <option value="bad" {% if r.status=="bad" %}selected{% endif %}>bad</option>
-  <option value="under investigation" {% if r.status=="under investigation" %}selected{% endif %}>under investigation</option>
-</select>
+<td data-sort="{{ r.status }}">
+    <select name="status">
+      <option value="good" {% if r.status=="good" %}selected{% endif %}>good</option>
+      <option value="bad" {% if r.status=="bad" %}selected{% endif %}>bad</option>
+      <option value="under investigation" {% if r.status=="under investigation" %}selected{% endif %}>under investigation</option>
+    </select>
+</td>
+
+<td data-sort="{{ r.tester }}">
+    <select name="tester">
+    {% for t in testers %}
+      <option value="{{t}}" {% if r.tester==t %}selected{% endif %}>{{t}}</option>
+    {% endfor %}
+    </select>
+</td>
+
+<td data-sort="{{ r.failure_mode }}">
+    <select name="failure_mode">
+      <option value="">None</option>
+      {% for f in failure_modes %}
+      <option value="{{f}}" {% if r.failure_mode==f %}selected{% endif %}>{{f}}</option>
+      {% endfor %}
+    </select>
+</td>
+
+<td data-sort="{{ r.timestamp }}">
+    {{ r.timestamp }}
 </td>
 
 <td>
-<select name="tester">
-{% for t in testers %}
-<option value="{{t}}" {% if r.tester==t %}selected{% endif %}>{{t}}</option>
-{% endfor %}
-</select>
-</td>
+    <button type="submit">Update</button>
+  </form>
 
-<td>
-<select name="failure_mode">
-  <option value="">None</option>
-  {% for f in failure_modes %}
-  <option value="{{f}}" {% if r.failure_mode==f %}selected{% endif %}>{{f}}</option>
-  {% endfor %}
-</select>
-</td>
-
-<td>{{r.timestamp}}</td>
-
-<td>
-<button type="submit">Update</button>
-</form>
-
-<!-- Delete form -->
-<form method="POST" action="{{ url_for('delete_test', test_id=r.id) }}" style="display:inline;">
-  <button type="submit" onclick="return confirm('Are you sure you want to delete this test?');">Delete</button>
-</form>
+  <form method="POST" action="{{ url_for('delete_test', test_id=r.id) }}" style="display:inline;">
+    <button type="submit" onclick="return confirm('Are you sure you want to delete this test?');">Delete</button>
+  </form>
 </td>
 </tr>
 {% endfor %}
-
+</tbody>
 </table>
+
+<script>
+console.log("sortTable script loaded");
+
+function sortTable(n) {
+    const table = document.getElementById("componentTable");
+    const tbody = table.tBodies[0];
+    const th = table.tHead.rows[0].cells[n];
+
+    // Track current sort direction
+    let dir = th.getAttribute("data-sort-dir") || "asc";
+
+    const rowsArray = Array.from(tbody.rows);
+
+    rowsArray.sort((a, b) => {
+        let x = a.cells[n].dataset.sort;
+        let y = b.cells[n].dataset.sort;
+
+        // Special handling for timestamps column
+        if (n === 4) {
+            x = new Date(x).getTime();
+            y = new Date(y).getTime();
+        }
+        else {
+            // Try numeric comparison first
+            let xNum = parseFloat(x);
+            let yNum = parseFloat(y);
+            if (!isNaN(xNum) && !isNaN(yNum)) {
+                x = xNum;
+                y = yNum;
+            }
+        }
+
+        if (dir === "asc") {
+            return x > y ? 1 : x < y ? -1 : 0;
+        } else {
+            return x < y ? 1 : x > y ? -1 : 0;
+        }
+    });
+
+    // Reattach rows in sorted order
+    rowsArray.forEach(row => tbody.appendChild(row));
+
+    // Toggle sort direction for next click
+    th.setAttribute("data-sort-dir", dir === "asc" ? "desc" : "asc");
+}
+</script>
+
+<!-- <script> -->
+<!-- // Confirm script loaded -->
+<!-- console.log("sortTable script loaded"); -->
+
+<!-- // Sorting function -->
+<!-- function sortTable(n) { -->
+<!--     const table = document.getElementById("componentTable"); -->
+<!--     const tbody = table.tBodies[0]; -->
+<!--     const th = table.tHead.rows[0].cells[n]; -->
+
+<!--     // Track current sort direction -->
+<!--     let dir = th.getAttribute("data-sort-dir") || "asc"; -->
+
+<!--     const rowsArray = Array.from(tbody.rows); -->
+
+<!--     rowsArray.sort((a, b) => { -->
+<!--         let x = a.cells[n].dataset.sort; -->
+<!--         let y = b.cells[n].dataset.sort; -->
+
+<!--         // Try numeric comparison first -->
+<!--         let xNum = parseFloat(x); -->
+<!--         let yNum = parseFloat(y); -->
+<!--         if (!isNaN(xNum) && !isNaN(yNum)) { -->
+<!--             x = xNum; -->
+<!--             y = yNum; -->
+<!--         } -->
+
+<!--         if (dir === "asc") return (x > y) ? 1 : (x < y) ? -1 : 0; -->
+<!--         else return (x < y) ? 1 : (x > y) ? -1 : 0; -->
+<!--     }); -->
+
+<!--     // Reattach rows in sorted order -->
+<!--     rowsArray.forEach(row => tbody.appendChild(row)); -->
+
+<!--     // Toggle sort direction for next click -->
+<!--     th.setAttribute("data-sort-dir", dir === "asc" ? "desc" : "asc"); -->
+<!-- } -->
+<!-- </script> -->
 
 </body>
 </html>

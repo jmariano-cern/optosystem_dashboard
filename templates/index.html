@@ -19,10 +19,19 @@
     border: 1px solid #999;
 }
 .progress-bar {
-    height: 20px;
+    height: 25px;
+    background-color: #4CAF50;
     text-align: center;
-    color: white;
+    color: black;           /* changed from white */
+    line-height: 25px;
+    border-radius: 5px;
+    font-weight: bold;      /* optional for better readability */
 }
+<!-- .progress-bar { -->
+<!--     height: 20px; -->
+<!--     text-align: center; -->
+<!--     color: white; -->
+<!-- } -->
 </style>
 </head>
 
@@ -38,10 +47,15 @@
 
   <!-- Progress bar -->
   <div class="progress-bar-container">
-    <div class="progress-bar" style="width:{{(data.progress*100)|round(1)}}%;background:green">
-      {{(data.progress*100)|round(1)}} %
+    <div class="progress-bar" style="width: {{ (summary[comp].progress * 100) | round(1) }}%">
+      {{ (summary[comp].progress * 100) | round(1) }}% ({{ summary[comp].good }}/{{ summary[comp].goal }})
     </div>
   </div>
+  <!-- <div class="progress-bar-container"> -->
+  <!--   <div class="progress-bar" style="width:{{(data.progress*100)|round(1)}}%;background:green"> -->
+  <!--     {{(data.progress*100)|round(1)}} % -->
+  <!--   </div> -->
+  <!-- </div> -->
 
   <br>
 

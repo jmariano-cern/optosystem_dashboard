@@ -169,6 +169,10 @@ def submit():
 
 @app.route("/status/<component>")
 def status(component):
+    from datetime import datetime, timedelta
+    import math
+
+    # Fetch all tests for this component
     rows = query_db(
         "SELECT * FROM tests WHERE component_type=? ORDER BY timestamp",
         (component,)
@@ -181,18 +185,22 @@ def status(component):
     yield_estimate = good / total if total else 0
 
     goal = components[component]["goal"]
-    progress = good / goal if goal else 0
+    progress = (good / goal * 100) if goal else 0
 
-    # Count failure modes (bad + under investigation)
+    # --- Status counts for pie chart ---
+    status_counts = {
+        "good": good,
+        "bad": bad,
+        "under investigation": investigation
+    }
+
+    # --- Failure mode counts (bad + under investigation only) ---
     failure_counts = {}
     for r in rows:
-        if r["failure_mode"]:
+        if r["status"] in ("bad", "under investigation") and r["failure_mode"]:
             failure_counts[r["failure_mode"]] = failure_counts.get(r["failure_mode"], 0) + 1
 
     # --- Forecasting logic ---
-    from datetime import datetime, timedelta
-    import math
-
     if rows:
         first_ts = datetime.fromisoformat(rows[0]["timestamp"])
         last_ts = datetime.fromisoformat(rows[-1]["timestamp"])
@@ -200,16 +208,17 @@ def status(component):
         first_ts = last_ts = datetime.today()
 
     # Number of business days since first test
-    num_days = sum(1 for i in range((last_ts.date() - first_ts.date()).days + 1)
-                   if (first_ts.date() + timedelta(days=i)).weekday() < 5)
+    num_days = sum(
+        1 for i in range((last_ts.date() - first_ts.date()).days + 1)
+        if (first_ts.date() + timedelta(days=i)).weekday() < 5
+    )
 
     avg_good_per_day = good / num_days if num_days else 0
     remaining_good = max(goal - good, 0)
 
-    # Handle zero average gracefully
+    # Predict expected completion date
     if avg_good_per_day > 0:
         expected_testing_days = remaining_good / avg_good_per_day
-        # Project expected completion date skipping weekends
         predicted_completion_date = datetime.today()
         days_added = 0
         while days_added < expected_testing_days:
@@ -231,20 +240,132 @@ def status(component):
         "predicted_completion_date": predicted_completion_date
     }
 
+    # --- Prepare Testing History for chart ---
+    history_dates = []
+    history_good = []
+    history_bad = []
+    history_under = []
+
+    cumulative_good = cumulative_bad = cumulative_under = 0
+    for r in rows:
+        ts_date = datetime.fromisoformat(r["timestamp"]).date().isoformat()
+        history_dates.append(ts_date)
+        if r["status"] == "good":
+            cumulative_good += 1
+        elif r["status"] == "bad":
+            cumulative_bad += 1
+        elif r["status"] == "under investigation":
+            cumulative_under += 1
+        history_good.append(cumulative_good)
+        history_bad.append(cumulative_bad)
+        history_under.append(cumulative_under)
+
+    # --- Recent tests (latest 20) ---
+    recent_tests = rows[-20:][::-1]  # most recent first
+
+    # Optional: failure mode colors
+    failure_mode_colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"]
+    # repeat colors if more modes
+    while len(failure_mode_colors) < len(failure_counts):
+        failure_mode_colors *= 2
+    failure_mode_colors = failure_mode_colors[:len(failure_counts)]
+
     return render_template(
         "status.html",
         component=component,
         total=total,
-        good=good,
-        bad=bad,
-        investigation=investigation,
         yield_estimate=yield_estimate,
         goal=goal,
         progress=progress,
-        failures=failure_counts,
-        rows=[dict(r) for r in rows],
+        status_counts=status_counts,
+        failure_mode_counts=failure_counts,
+        failure_mode_colors=failure_mode_colors,
+        history_dates=history_dates,
+        history_good=history_good,
+        history_bad=history_bad,
+        history_under=history_under,
+        recent_tests=[dict(r) for r in recent_tests],
         forecast=forecast_data
     )
+
+# @app.route("/status/<component>")
+# def status(component):
+#     rows = query_db(
+#         "SELECT * FROM tests WHERE component_type=? ORDER BY timestamp",
+#         (component,)
+#     )
+
+#     total = len(rows)
+#     good = sum(r["status"] == "good" for r in rows)
+#     bad = sum(r["status"] == "bad" for r in rows)
+#     investigation = sum(r["status"] == "under investigation" for r in rows)
+#     yield_estimate = good / total if total else 0
+
+#     goal = components[component]["goal"]
+#     progress = good / goal if goal else 0
+
+#     # Count failure modes (bad + under investigation)
+#     failure_counts = {}
+#     for r in rows:
+#         if r["failure_mode"]:
+#             failure_counts[r["failure_mode"]] = failure_counts.get(r["failure_mode"], 0) + 1
+
+#     # --- Forecasting logic ---
+#     from datetime import datetime, timedelta
+#     import math
+
+#     if rows:
+#         first_ts = datetime.fromisoformat(rows[0]["timestamp"])
+#         last_ts = datetime.fromisoformat(rows[-1]["timestamp"])
+#     else:
+#         first_ts = last_ts = datetime.today()
+
+#     # Number of business days since first test
+#     num_days = sum(1 for i in range((last_ts.date() - first_ts.date()).days + 1)
+#                    if (first_ts.date() + timedelta(days=i)).weekday() < 5)
+
+#     avg_good_per_day = good / num_days if num_days else 0
+#     remaining_good = max(goal - good, 0)
+
+#     # Handle zero average gracefully
+#     if avg_good_per_day > 0:
+#         expected_testing_days = remaining_good / avg_good_per_day
+#         # Project expected completion date skipping weekends
+#         predicted_completion_date = datetime.today()
+#         days_added = 0
+#         while days_added < expected_testing_days:
+#             predicted_completion_date += timedelta(days=1)
+#             if predicted_completion_date.weekday() < 5:
+#                 days_added += 1
+#         predicted_completion_date = predicted_completion_date.date()
+#     else:
+#         expected_testing_days = math.nan
+#         predicted_completion_date = "NaN"
+
+#     forecast_data = {
+#         "total_good": good,
+#         "first_day": first_ts.date(),
+#         "num_days": num_days,
+#         "avg_good_per_day": avg_good_per_day,
+#         "remaining_good": remaining_good,
+#         "expected_testing_days": expected_testing_days,
+#         "predicted_completion_date": predicted_completion_date
+#     }
+
+#     return render_template(
+#         "status.html",
+#         component=component,
+#         total=total,
+#         good=good,
+#         bad=bad,
+#         investigation=investigation,
+#         yield_estimate=yield_estimate,
+#         goal=goal,
+#         progress=progress,
+#         failures=failure_counts,
+#         rows=[dict(r) for r in rows],
+#         forecast=forecast_data
+#     )
 
 # @app.route("/status/<component>")
 # def status(component):
