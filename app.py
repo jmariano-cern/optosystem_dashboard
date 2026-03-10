@@ -1,12 +1,12 @@
 import json
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, g
 from datetime import datetime, timedelta
 import math
 
 app = Flask(__name__)
 
-DB = "database.db"
+database = "database.db"
 
 # -------------------------
 # LOAD CONFIG FILES
@@ -25,30 +25,57 @@ with open("config/failure_modes.json") as f:
 # DATABASE HELPERS
 # -------------------------
 
-def query_db(query, args=()):
+def get_db():
+    if "db" not in g:
+        g.db = sqlite3.connect(
+            database,
+            timeout=30,                # wait for locks
+            check_same_thread=False    # allow use in threaded servers
+        )
+        g.db.row_factory = sqlite3.Row
+    return g.db
 
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-
-    cur.execute(query, args)
-    rows = cur.fetchall()
-
-    conn.close()
-
-    return rows
-
+def query_db(query, args=(), one=False):
+    db = get_db()
+    cur = db.execute(query, args)
+    rv = cur.fetchall()
+    cur.close()
+    return (rv[0] if rv else None) if one else rv
 
 def execute_db(query, args=()):
+    db = get_db()
+    db.execute(query, args)
+    db.commit()
 
-    conn = sqlite3.connect(DB)
-    cur = conn.cursor()
+# def query_db(query, args=()):
 
-    cur.execute(query, args)
-    conn.commit()
+#     conn = sqlite3.connect(DB, timeout=30)
+#     conn.row_factory = sqlite3.Row
+#     cur = conn.cursor()
 
-    conn.close()
+#     cur.execute(query, args)
+#     rows = cur.fetchall()
 
+#     conn.close()
+
+#     return rows
+
+
+# def execute_db(query, args=()):
+
+#     conn = sqlite3.connect(DB, timeout=30)
+#     cur = conn.cursor()
+
+#     cur.execute(query, args)
+#     conn.commit()
+
+#     conn.close()
+
+@app.teardown_appcontext
+def close_db(exception):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
 
 # -------------------------
 # HOME PAGE
@@ -100,12 +127,30 @@ def submit():
         tester = request.form["tester"]
         status = request.form["status"]
         failure = request.form.get("failure_mode")
+        timestamp = datetime.now().isoformat()
 
+        existing = query_db(
+            "SELECT id FROM tests WHERE component_type=? AND serial_number=?",
+            (component, serial),
+            one=True
+        )
+
+        if existing:
+            message = f"ERROR: {component} with serial number {serial} already exists."
+            return render_template(
+                "submit.html",
+                components=components,
+                testers=testers,
+                failure_modes=failure_modes,
+                message=message,
+                failures={}
+            )
+        
         execute_db("""
         INSERT INTO tests
-        (component_type, serial_number, tester, status, failure_mode)
-        VALUES (?, ?, ?, ?, ?)
-        """, (component, serial, tester, status, failure))
+        (component_type, serial_number, tester, status, failure_mode, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (component, serial, tester, status, failure, timestamp))
 
         message = f"Component {serial} recorded successfully."
 

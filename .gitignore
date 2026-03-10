@@ -1,3 +1,5 @@
 *~
 \#*
 *.bak
+database.db
+__pycache__
