@@ -746,55 +746,104 @@ def tester_dashboard():
 #         component_colors=component_colors
 #     )
 
+# @app.route("/calendar")
+# def calendar_page():
+#     from datetime import date, timedelta
+
+#     start_date = date.today()
+#     days = [(start_date + timedelta(days=i)) for i in range(7)]
+#     day_strs = [d.strftime("%Y-%m-%d") for d in days]
+
+#     # Ensure every component, shift, and day has a row in the DB
+#     for d in day_strs:
+#         for shift in ["morning", "afternoon"]:
+#             for comp in components:
+#                 existing = query_db(
+#                     "SELECT id FROM shifts WHERE date=? AND shift=? AND component_type=?",
+#                     (d, shift, comp),
+#                     one=True
+#                 )
+#                 if not existing:
+#                     execute_db(
+#                         "INSERT INTO shifts (date, shift, component_type, tester) VALUES (?, ?, ?, ?)",
+#                         (d, shift, comp, None)
+#                     )
+
+#     # Fetch all shifts
+#     rows = query_db("SELECT * FROM shifts ORDER BY date, shift, component_type")
+
+#     # Build calendar dict
+#     calendar = {d: {"morning": {}, "afternoon": {}} for d in day_strs}
+#     for r in rows:
+#         d = r["date"]
+#         shift = r["shift"]
+#         comp = r["component_type"]
+#         calendar[d][shift][comp] = {
+#             "tester": r["tester"],
+#             "id": r["id"]
+#         }
+
+#     # Assign colors
+#     base_colors = ["#ffcccc", "#ccffcc", "#ccccff", "#fff0cc", "#ffccff", "#ccffff"]
+#     dark_colors = ["#cc4444", "#44cc44", "#4444cc", "#ffaa00", "#aa00aa", "#00aaaa"]
+#     component_colors = {}
+#     for idx, comp in enumerate(components):
+#         component_colors[comp] = {"open": base_colors[idx % len(base_colors)],
+#                                    "staffed": dark_colors[idx % len(dark_colors)]}
+
+#     return render_template(
+#         "calendar.html",
+#         calendar=calendar,
+#         days=day_strs,
+#         components=components,
+#         component_colors=component_colors
+#     )
+
+from datetime import datetime, timedelta
+
 @app.route("/calendar")
 def calendar_page():
-    from datetime import date, timedelta
+    # Fetch all shifts from DB
+    rows = query_db(
+        "SELECT * FROM shifts ORDER BY date, shift, component_type"
+    )
 
-    start_date = date.today()
-    days = [(start_date + timedelta(days=i)) for i in range(7)]
-    day_strs = [d.strftime("%Y-%m-%d") for d in days]
+    # Generate a week-long range (Mon–Sun) starting from today
+    start_date = datetime.today().date()
+    week_days = [start_date + timedelta(days=i) for i in range(7)]
 
-    # Ensure every component, shift, and day has a row in the DB
-    for d in day_strs:
-        for shift in ["morning", "afternoon"]:
-            for comp in components:
-                existing = query_db(
-                    "SELECT id FROM shifts WHERE date=? AND shift=? AND component_type=?",
-                    (d, shift, comp),
-                    one=True
-                )
-                if not existing:
-                    execute_db(
-                        "INSERT INTO shifts (date, shift, component_type, tester) VALUES (?, ?, ?, ?)",
-                        (d, shift, comp, None)
-                    )
+    # Build calendar dict only for weekdays
+    calendar = {}
+    for d in week_days:
+        if d.weekday() < 5:  # Monday=0, Sunday=6
+            calendar[d] = {"morning": [], "afternoon": []}
+        else:
+            calendar[d] = {"morning": [], "afternoon": []}  # keep weekends but empty
 
-    # Fetch all shifts
-    rows = query_db("SELECT * FROM shifts ORDER BY date, shift, component_type")
-
-    # Build calendar dict
-    calendar = {d: {"morning": {}, "afternoon": {}} for d in day_strs}
+    # Populate calendar with shifts (only for weekdays)
     for r in rows:
-        d = r["date"]
+        d = datetime.fromisoformat(r["date"]).date()
+        if d.weekday() >= 5:  # skip weekends
+            continue
         shift = r["shift"]
         comp = r["component_type"]
-        calendar[d][shift][comp] = {
+        calendar[d][shift].append({
+            "component": comp,
             "tester": r["tester"],
             "id": r["id"]
-        }
+        })
 
-    # Assign colors
-    base_colors = ["#ffcccc", "#ccffcc", "#ccccff", "#fff0cc", "#ffccff", "#ccffff"]
-    dark_colors = ["#cc4444", "#44cc44", "#4444cc", "#ffaa00", "#aa00aa", "#00aaaa"]
-    component_colors = {}
-    for idx, comp in enumerate(components):
-        component_colors[comp] = {"open": base_colors[idx % len(base_colors)],
-                                   "staffed": dark_colors[idx % len(dark_colors)]}
+    # Generate day headers as (weekday name, date)
+    day_headers = [(d.strftime("%A"), d) for d in week_days]
+
+    # Generate consistent colors for each component
+    pastel_colors = ["#FFB3BA","#BAE1FF","#BAFFC9","#FFFFBA","#FFDFBA","#E2BAFF","#BAFFD9"]
+    component_colors = {comp: pastel_colors[i % len(pastel_colors)] for i, comp in enumerate(components)}
 
     return render_template(
         "calendar.html",
         calendar=calendar,
-        days=day_strs,
+        day_headers=day_headers,
         components=components,
         component_colors=component_colors
     )
