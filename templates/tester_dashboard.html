@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Tester Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+.chart-container{
+    width:400px;
+    display:inline-block;
+    margin:20px;
+}
+</style>
+
+</head>
+<body>
+
+<a href="/">Home</a> |
+<a href="/submit">Enter Test</a>
+
+<h1>Tester Dashboard</h1>
+
+<h2>Tests Per Tester (by Component)</h2>
+
+<div style="width:700px;">
+<canvas id="testerStackedChart"></canvas>
+</div>
+
+<script>
+let data = {{ tester_component_counts | tojson }};
+
+// Sort testers by total tests
+let entries = Object.entries(data).sort((a,b)=>{
+    let sumA = Object.values(a[1]).reduce((x,y)=>x+y,0);
+    let sumB = Object.values(b[1]).reduce((x,y)=>x+y,0);
+    return sumB - sumA;
+});
+
+let testers = entries.map(e => e[0]);
+let components = Object.keys(entries[0][1]);
+
+let datasets = components.map(comp => ({
+    label: comp,
+    data: entries.map(e => e[1][comp]),
+}));
+
+new Chart(
+    document.getElementById("testerStackedChart"),
+    {
+        type: "bar",
+        data: {
+            labels: testers,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true },
+                y: {
+                    stacked: true,
+                    beginAtZero: true
+                }
+            }
+        }
+    }
+);
+</script>
+
+<h2>Component breakdowns by tester</h2>
+
+{% for comp in tester_summary %}
+<div class="chart-container">
+
+<h3>{{comp}}</h3>
+
+<canvas id="chart_{{loop.index}}"></canvas>
+
+<script>
+let data_{{loop.index}} = {{ tester_summary[comp] | tojson }};
+
+new Chart(
+    document.getElementById("chart_{{loop.index}}"),
+    {
+        type: "pie",
+        data: {
+            labels: Object.keys(data_{{loop.index}}),
+            datasets: [{
+                data: Object.values(data_{{loop.index}})
+            }]
+        },
+        options:{
+            responsive:true,
+            plugins:{
+                legend:{position:"right"}
+            }
+        }
+    }
+);
+</script>
+
+</div>
+{% endfor %}
+
+</body>
+</html>

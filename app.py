@@ -559,6 +559,99 @@ def delete_test(test_id):
 
 #     return redirect(url_for("list_component", component=component))
 
+@app.route("/tester_dashboard")
+def tester_dashboard():
+    tester_summary = {}
+
+    # component → tester counts (for pie charts)
+    for comp in components:
+        rows = query_db(
+            "SELECT tester FROM tests WHERE component_type=?",
+            (comp,)
+        )
+
+        counts = {}
+        for r in rows:
+            tester = r["tester"] or "Unknown"
+            counts[tester] = counts.get(tester, 0) + 1
+
+        tester_summary[comp] = counts
+
+    # tester → component counts (for stacked bar chart)
+    rows = query_db("SELECT tester, component_type FROM tests")
+
+    tester_component_counts = {}
+
+    for r in rows:
+        tester = r["tester"] or "Unknown"
+        comp = r["component_type"]
+
+        if tester not in tester_component_counts:
+            tester_component_counts[tester] = {c:0 for c in components}
+
+        tester_component_counts[tester][comp] += 1
+
+    return render_template(
+        "tester_dashboard.html",
+        components=components,
+        tester_summary=tester_summary,
+        tester_component_counts=tester_component_counts
+    )
+
+# @app.route("/tester_dashboard")
+# def tester_dashboard():
+#     tester_summary = {}
+#     tester_totals = {}
+
+#     for comp in components:
+#         rows = query_db(
+#             "SELECT tester FROM tests WHERE component_type=?",
+#             (comp,)
+#         )
+
+#         counts = {}
+
+#         for r in rows:
+#             tester = r["tester"] or "Unknown"
+
+#             # per-component counts
+#             counts[tester] = counts.get(tester, 0) + 1
+
+#             # global totals
+#             tester_totals[tester] = tester_totals.get(tester, 0) + 1
+
+#         tester_summary[comp] = counts
+
+#     return render_template(
+#         "tester_dashboard.html",
+#         components=components,
+#         tester_summary=tester_summary,
+#         tester_totals=tester_totals
+#     )
+
+# @app.route("/tester_dashboard")
+# def tester_dashboard():
+#     tester_summary = {}
+
+#     for comp in components:
+#         rows = query_db(
+#             "SELECT tester FROM tests WHERE component_type=?",
+#             (comp,)
+#         )
+
+#         counts = {}
+#         for r in rows:
+#             tester = r["tester"] or "Unknown"
+#             counts[tester] = counts.get(tester, 0) + 1
+
+#         tester_summary[comp] = counts
+
+#     return render_template(
+#         "tester_dashboard.html",
+#         components=components,
+#         tester_summary=tester_summary
+#     )
+
 # -------------------------
 # RUN SERVER
 # -------------------------
