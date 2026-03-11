@@ -1,14 +1,26 @@
 {
+  "BPOL2v5": {
+    "goal": 1878
+  },
   "Optoboard": {
-    "goal": 200
+    "goal": 1878
   },
   "Optobox": {
-    "goal": 1500
+    "goal": 244
   },
   "Connectorboard": {
-    "goal": 2500
+    "goal": 263
   },
   "Powerboard": {
-    "goal": 1800
+    "goal": 263
+  },
+  "MOPS": {
+    "goal": 263
+  },
+  "Powercable": {
+    "goal": 263
+  },
+  "CANcable": {
+    "goal": 263
   }
 }
