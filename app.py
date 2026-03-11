@@ -398,41 +398,54 @@ def tester_dashboard():
 
 @app.route("/calendar")
 def calendar_page():
+
     today = datetime.today().date()
 
-    # --- Compute current week (Sunday → Saturday) ---
-    start_of_week = today - timedelta(days=(today.weekday() + 1) % 7)
+    # Week offset parameter
+    week_offset = int(request.args.get("week", 0))
+
+    # Find Sunday of current week
+    this_sunday = today - timedelta(days=(today.weekday() + 1) % 7)
+
+    # Apply offset
+    start_of_week = this_sunday + timedelta(days=7 * week_offset)
+
+    # Build week
     days = [start_of_week + timedelta(days=i) for i in range(7)]
 
-    # Fetch all shifts in this week
+    # Query shifts
     rows = query_db(
         "SELECT * FROM shifts WHERE date BETWEEN ? AND ? ORDER BY date, shift, component_type",
         (days[0].isoformat(), days[-1].isoformat())
     )
 
-    # Build calendar dict
     calendar = {}
     for d in days:
         calendar[d] = {"morning": [], "afternoon": []}
 
     for r in rows:
         d = datetime.fromisoformat(r["date"]).date()
-        shift = r["shift"]
-        calendar[d][shift].append({
+        calendar[d][r["shift"]].append({
             "component": r["component_type"],
             "tester": r["tester"],
             "id": r["id"]
         })
 
-    # --- Component colors (pastel for open, darker for taken) ---
-    pastel_colors = ["#FFB3BA", "#BAE1FF", "#BAFFC9", "#FFFFBA", "#FFDFBA",
-                     "#D5BAFF", "#FFBAF0", "#BAFFD9", "#BAE1FF"]
-    dark_colors = ["#FF7A70", "#70A7FF", "#70FFA0", "#FFFF70", "#FFB070",
-                   "#A070FF", "#FF70D0", "#70FFB0", "#70A7FF"]
+    pastel_colors = [
+        "#FFB3BA","#BAE1FF","#BAFFC9","#FFFFBA",
+        "#FFDFBA","#D5BAFF","#FFBAF0","#BAFFD9"
+    ]
+
+    dark_colors = [
+        "#FF7A70","#70A7FF","#70FFA0","#FFFF70",
+        "#FFB070","#A070FF","#FF70D0","#70FFB0"
+    ]
 
     component_colors = {
-        comp: {"open": pastel_colors[i % len(pastel_colors)],
-               "taken": dark_colors[i % len(dark_colors)]}
+        comp: {
+            "open": pastel_colors[i % len(pastel_colors)],
+            "taken": dark_colors[i % len(dark_colors)]
+        }
         for i, comp in enumerate(components)
     }
 
@@ -440,9 +453,10 @@ def calendar_page():
         "calendar.html",
         calendar=calendar,
         days=days,
-        components=components,
         today=today,
-        component_colors=component_colors
+        components=components,
+        component_colors=component_colors,
+        week_offset=week_offset
     )
 
 @app.route("/shift/<int:shift_id>", methods=["GET", "POST"])
