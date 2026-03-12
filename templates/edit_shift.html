@@ -1,10 +1,7 @@
 <!DOCTYPE html>
 <html>
-<head>
-<title>Edit Shift</title>
-</head>
+<head><title>Edit Shift</title></head>
 <body>
-
 <a href="/calendar">Back to Calendar</a>
 
 <h1>Edit Shift</h1>
@@ -19,7 +16,6 @@
         <p><strong>Date:</strong> {{ shift.date }}</p>
         <p><strong>Shift:</strong> {{ shift.shift }}</p>
     {% else %}
-        <!-- Hidden inputs for new shift -->
         <input type="hidden" name="date" value="{{ request.args.get('date') }}">
         <input type="hidden" name="shift" value="{{ request.args.get('shift') }}">
         <input type="hidden" name="component" value="{{ request.args.get('component') }}">
@@ -29,17 +25,16 @@
     {% endif %}
 
     <p>
-        <label for="tester">Assign Tester:</label>
-        <select name="tester" id="tester">
-            <option value="">-- None --</option>
-            {% for t in testers %}
-                <option value="{{ t }}" {% if shift and shift.tester == t %}selected{% endif %}>{{ t }}</option>
-            {% endfor %}
-        </select>
+    <label for="tester">Assign Tester:</label>
+    <select name="tester" id="tester">
+        <option value="">-- None --</option>
+        {% for t in testers %}
+            <option value="{{ t }}" {% if shift and shift.tester == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+    </select>
     </p>
 
     <button type="submit">Save</button>
 </form>
-
 </body>
 </html>

@@ -422,6 +422,90 @@ def tester_dashboard():
     )
 
 # -------------------------
+# CALENDAR
+# -------------------------
+
+@app.route("/calendar")
+def calendar_page():
+    today = datetime.today().date()
+    week_offset = int(request.args.get("week", 0))
+
+    # Find Sunday of current week
+    this_sunday = today - timedelta(days=(today.weekday() + 1) % 7)
+    start_of_week = this_sunday + timedelta(days=7 * week_offset)
+    days = [start_of_week + timedelta(days=i) for i in range(7)]
+
+    # Query shifts for this week
+    rows = query_db(
+        "SELECT * FROM shifts WHERE date BETWEEN ? AND ? ORDER BY date, shift, component_type",
+        (days[0].isoformat(), days[-1].isoformat())
+    )
+
+    # Initialize calendar dict
+    calendar = {}
+    for d in days:
+        calendar[d] = {"morning": [], "afternoon": []}
+
+    for r in rows:
+        d = datetime.fromisoformat(r["date"]).date()
+        calendar[d][r["shift"]].append({
+            "component": r["component_type"],
+            "tester": r["tester"],
+            "id": r["id"]
+        })
+
+    # Component colors for calendar: taken = base, open = lighter
+    component_colors = {
+        comp: {
+            "taken": components[comp]["color"],
+            "open": components[comp]["light_color"]
+        } for comp in components
+    }
+
+    return render_template(
+        "calendar.html",
+        calendar=calendar,
+        days=days,
+        today=today,
+        components=components,
+        component_colors=component_colors,
+        week_offset=week_offset
+    )
+
+@app.route("/shift/<int:shift_id>", methods=["GET", "POST"])
+def edit_shift(shift_id):
+    row = query_db("SELECT * FROM shifts WHERE id=?", (shift_id,), one=True)
+
+    if request.method == "POST":
+        tester = request.form.get("tester", "").strip() or None
+
+        if row:
+            execute_db(
+                "UPDATE shifts SET tester=? WHERE id=?",
+                (tester, shift_id)
+            )
+            message = f"Shift updated successfully for {row['component_type']} on {row['date']} ({row['shift']})"
+        else:
+            date_val = request.form["date"]
+            shift_val = request.form["shift"]
+            component_val = request.form["component"]
+
+            execute_db(
+                "INSERT INTO shifts (date, shift, component_type, tester) VALUES (?, ?, ?, ?)",
+                (date_val, shift_val, component_val, tester)
+            )
+            message = f"Shift created successfully for {component_val} on {date_val} ({shift_val})"
+
+        return redirect("/calendar")
+
+    return render_template(
+        "edit_shift.html",
+        shift=row,
+        testers=testers.keys(),
+        message=None
+    )
+
+# -------------------------
 # RUN SERVER
 # -------------------------
 
