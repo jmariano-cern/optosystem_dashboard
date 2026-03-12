@@ -517,6 +517,54 @@ def edit_shift(shift_id):
     )
 
 # -------------------------
+# DAILY SNAPSHOT
+# -------------------------
+
+@app.route("/daily_snapshot")
+def daily_snapshot():
+    today = datetime.today().date()
+
+    # Fetch today's shifts
+    shift_rows = query_db(
+        "SELECT * FROM shifts WHERE date=? ORDER BY shift, component_type",
+        (today.isoformat(),)
+    )
+
+    shifts = {"morning": [], "afternoon": []}
+    for r in shift_rows:
+        shifts[r["shift"]].append({
+            "component": r["component_type"],
+            "tester": r["tester"],
+            "id": r["id"],
+            "active": components[r["component_type"]]["active"]
+        })
+
+    # Fetch today's tests per component
+    components_today = {}
+    for comp in components:
+        tests_today = query_db(
+            "SELECT status FROM tests WHERE component_type=? AND DATE(timestamp)=?",
+            (comp, today.isoformat())
+        )
+        total_today = len(tests_today)
+        status_counts = {"good":0,"bad":0,"under investigation":0}
+        for t in tests_today:
+            status_counts[t["status"]] += 1
+        components_today[comp] = {
+            "total_today": total_today,
+            "status_counts": status_counts
+        }
+
+    return render_template(
+        "daily_snapshot.html",
+        today=today,
+        shifts=shifts,
+        components_today=components_today,
+        components=components,
+        tester_colors={t: testers[t]["color"] for t in testers}
+    )
+
+# -------------------------
 # RUN SERVER
 # -------------------------
 
