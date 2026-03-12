@@ -18,9 +18,6 @@ with open("config/components.json") as f:
 with open("config/testers.json") as f:
     testers_cfg = json.load(f)
 
-with open("config/failure_modes.json") as f:
-    failure_modes_cfg = json.load(f)
-
 # -------------------------
 # COLOR HELPERS
 # -------------------------
@@ -39,17 +36,20 @@ default_colors = [
 # PREPARE COMPONENT DATA
 # -------------------------
 
+# Prepare components
 components = {}
-
+failure_modes_cfg = {} # dumb hack
 for i, comp in enumerate(components_cfg):
-
-    base_color = components_cfg[comp].get("color") or default_colors[i % len(default_colors)]
-
+    cfg = components_cfg[comp]
+    base_color = cfg.get("color") or default_colors[i % len(default_colors)]
     components[comp] = {
-        "goal": components_cfg[comp]["goal"],
+        "goal": cfg["goal"],
         "color": base_color,
-        "light_color": lighten_color(base_color, 0.7)
+        "light_color": lighten_color(base_color, 0.7),
+        "failure_modes": cfg.get("failure_modes", []),
+        "active": cfg.get("active", True)
     }
+    failure_modes_cfg[comp] = cfg.get("failure_modes", [])
 
 # -------------------------
 # PREPARE TESTER DATA

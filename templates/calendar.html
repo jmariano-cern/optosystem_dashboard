@@ -7,21 +7,13 @@ body { font-family: Arial, sans-serif; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid black; vertical-align: top; padding: 6px; }
 th { background: #eee; }
-
 .shift-label { font-weight: bold; text-align: center; width: 50px; }
-.weekend { width: 70px; background: #f0f0f0; }
+.weekend { width: 70px; }
 .past-day { background: #f5f5f5; }
-
-.component-slot {
-    margin: 4px 0;
-    padding: 4px;
-    border-radius: 4px;
-    text-align: center;
-}
+.component-slot { margin: 4px 0; padding: 4px; border-radius: 4px; text-align: center; }
 .locked { border: 2px solid #555; opacity: 0.8; }
 .lock-icon { font-size: 12px; margin-left: 4px; }
 a.shift-link { text-decoration: none; color: black; display: block; }
-
 .navbar { margin-bottom: 15px; font-size: 18px; }
 </style>
 </head>
@@ -31,16 +23,17 @@ a.shift-link { text-decoration: none; color: black; display: block; }
 <a href="/submit">Enter Test</a> |
 <a href="/tester_dashboard">Tester Dashboard</a>
 
-<h1>Testing Shift Calendar<br>
+<h1>
+Testing Shift Calendar<br>
 <small>{{ days[0].strftime('%b %d') }} – {{ days[-1].strftime('%b %d, %Y') }}</small>
 </h1>
 
 <div class="navbar">
-<a href="/calendar?week={{ week_offset - 1 }}">⬅ Previous Week</a>
+<a href="/calendar?week={{ week_offset-1 }}">⬅ Previous Week</a>
 &nbsp;&nbsp;|&nbsp;&nbsp;
 <a href="/calendar?week=0">Current Week</a>
 &nbsp;&nbsp;|&nbsp;&nbsp;
-<a href="/calendar?week={{ week_offset + 1 }}">Next Week ➡</a>
+<a href="/calendar?week={{ week_offset+1 }}">Next Week ➡</a>
 </div>
 
 <table>
@@ -52,31 +45,43 @@ a.shift-link { text-decoration: none; color: black; display: block; }
 {% endfor %}
 </tr>
 
-{% for shift_name in ["morning","afternoon"] %}
 <tr>
-<td class="shift-label">{{ "AM" if shift_name=="morning" else "PM" }}</td>
+<td class="shift-label">AM</td>
 {% for d in days %}
-    {% set is_weekend = d.weekday() in [5,6] %}
-    <td class="{% if d < today %}past-day{% endif %} {% if is_weekend %}weekend{% endif %}">
-    {% if not is_weekend %}
-        {% for slot in calendar[d][shift_name] %}
-            {% set is_past = d < today %}
-            {% set bg_color = component_colors[slot.component]['taken'] if slot.tester else component_colors[slot.component]['open'] %}
-            <div class="component-slot {% if is_past %}locked{% endif %}" style="background: {{ bg_color }}">
-                {% if not is_past %}
-                <a class="shift-link" href="/shift/{{ slot.id }}">
-                {% endif %}
-                <span class="component-name">{{ slot.component }}</span><br>
-                {% if slot.tester %}{{ slot.tester }}{% else %}OPEN{% endif %}
-                {% if is_past %}<span class="lock-icon">🔒</span>{% endif %}
-                {% if not is_past %}</a>{% endif %}
-            </div>
-        {% endfor %}
-    {% endif %}
-    </td>
+<td class="{% if d<today %}past-day{% endif %}">
+{% for slot in calendar[d]["morning"] %}
+    {% set is_past = d<today %}
+    {% set comp_active = components[slot.component]["active"] %}
+    {% set bg_color = component_colors[slot.component]['taken'] if slot.tester else component_colors[slot.component]['open'] %}
+    <div class="component-slot {% if is_past or not comp_active %}locked{% endif %}" style="background: {{ bg_color }}">
+        {% if comp_active and not is_past %}<a class="shift-link" href="/shift/{{ slot.id }}">{% endif %}
+        {{ slot.component }}<br>
+        {% if slot.tester %}{{ slot.tester }}{% else %}{% if comp_active %}OPEN{% else %}INACTIVE 🔒{% endif %}{% endif %}
+        {% if comp_active and not is_past %}</a>{% endif %}
+    </div>
+{% endfor %}
+</td>
 {% endfor %}
 </tr>
+
+<tr>
+<td class="shift-label">PM</td>
+{% for d in days %}
+<td class="{% if d<today %}past-day{% endif %}">
+{% for slot in calendar[d]["afternoon"] %}
+    {% set is_past = d<today %}
+    {% set comp_active = components[slot.component]["active"] %}
+    {% set bg_color = component_colors[slot.component]['taken'] if slot.tester else component_colors[slot.component]['open'] %}
+    <div class="component-slot {% if is_past or not comp_active %}locked{% endif %}" style="background: {{ bg_color }}">
+        {% if comp_active and not is_past %}<a class="shift-link" href="/shift/{{ slot.id }}">{% endif %}
+        {{ slot.component }}<br>
+        {% if slot.tester %}{{ slot.tester }}{% else %}{% if comp_active %}OPEN{% else %}INACTIVE 🔒{% endif %}{% endif %}
+        {% if comp_active and not is_past %}</a>{% endif %}
+    </div>
 {% endfor %}
+</td>
+{% endfor %}
+</tr>
 </table>
 </body>
 </html>
