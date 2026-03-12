@@ -12,9 +12,6 @@ with open("config/components.json") as f:
 with open("config/testers.json") as f:
     testers_cfg = json.load(f)
 
-with open("config/failure_modes.json") as f:
-    failure_modes_cfg = json.load(f)
-
 # Normalize tester names
 testers = [t if isinstance(t, str) else t["name"] for t in testers_cfg]
 
@@ -31,11 +28,9 @@ def existing_count(component):
     cur.execute("SELECT COUNT(*) FROM tests WHERE component_type=?", (component,))
     return cur.fetchone()[0]
 
-
 def existing_serials(component):
     cur.execute("SELECT serial_number FROM tests WHERE component_type=?", (component,))
     return {r[0] for r in cur.fetchall()}
-
 
 def random_serial(existing):
     while True:
@@ -44,16 +39,14 @@ def random_serial(existing):
             existing.add(s)
             return s
 
-
 def random_status():
     return random.choices(
         ["good", "bad", "under investigation"],
         weights=[0.75, 0.2, 0.05]
     )[0]
 
-
 def random_failure(component):
-    modes = failure_modes_cfg.get(component, [])
+    modes = components_cfg[component].get("failure_modes", [])
     if not modes:
         return None
     return random.choice(modes)
@@ -110,18 +103,21 @@ conn.commit()
 print("Random tests generated.")
 
 # -------------------------
-# GENERATE SHIFTS
+# GENERATE SHIFTS (active components only)
 # -------------------------
 today_date = date.today()
 year_start = date(today_date.year, 1, 1)
 year_end = date(today_date.year + 1, 12, 31)
+
+# Only active components
+active_components = [comp for comp, cfg in components_cfg.items() if cfg.get("active", True)]
 
 current_day = year_start
 shifts_to_insert = []
 
 while current_day <= year_end:
     if current_day.weekday() < 5:  # Mon-Fri
-        for comp in components_cfg:
+        for comp in active_components:
             for shift in ["morning", "afternoon"]:
                 # Assign a tester 70% of the time
                 tester = random.choice(testers) if random.random() < 0.7 else None
@@ -135,4 +131,4 @@ cur.executemany("""
 conn.commit()
 conn.close()
 
-print("Random shifts generated.")
+print("Random shifts generated (active components only).")
