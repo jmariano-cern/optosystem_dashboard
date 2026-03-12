@@ -3,35 +3,40 @@
 
 <head>
 <title>Component Testing Dashboard</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
+
+body {
+    font-family: Arial, sans-serif;
+}
+
 .component-card {
     border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 20px;
+    padding: 12px;
+    margin: 10px;
     display: inline-block;
     vertical-align: top;
-    width: 300px;
+    width: 320px;
 }
+
 .progress-bar-container {
     width: 100%;
     background: #eee;
     border: 1px solid #999;
+    border-radius: 5px;
+    overflow: hidden;
 }
+
 .progress-bar {
     height: 25px;
-    background-color: #4CAF50;
     text-align: center;
-    color: black;           /* changed from white */
+    color: black;
     line-height: 25px;
-    border-radius: 5px;
-    font-weight: bold;      /* optional for better readability */
+    font-weight: bold;
 }
-<!-- .progress-bar { -->
-<!--     height: 20px; -->
-<!--     text-align: center; -->
-<!--     color: white; -->
-<!-- } -->
+
 </style>
 </head>
 
@@ -40,53 +45,85 @@
 <h1>Project Overview</h1>
 
 {% for comp, data in summary.items() %}
+
 <div class="component-card">
-  <h3>{{comp}}</h3>
-  <b>Total Good:</b> {{data.good}} / {{data.total}}<br>
-  <b>Yield:</b> {{(data.yield_estimate*100)|round(2)}} %<br><br>
 
-  <!-- Progress bar -->
-  <div class="progress-bar-container">
-    <div class="progress-bar" style="width: {{ (summary[comp].progress * 100) | round(1) }}%">
-      {{ (summary[comp].progress * 100) | round(1) }}% ({{ summary[comp].good }}/{{ summary[comp].goal }})
-    </div>
-  </div>
-  <!-- <div class="progress-bar-container"> -->
-  <!--   <div class="progress-bar" style="width:{{(data.progress*100)|round(1)}}%;background:green"> -->
-  <!--     {{(data.progress*100)|round(1)}} % -->
-  <!--   </div> -->
-  <!-- </div> -->
+<h3 style="color: {{ components[comp]['color'] }}">
+{{ comp }}
+</h3>
 
-  <br>
+<b>Total Tested:</b> {{ data.total }}<br>
+<b>Good:</b> {{ data.good }}<br>
+<b>Yield:</b> {{ (data.yield_estimate * 100) | round(2) }} %<br><br>
 
-  <!-- Status composition pie chart -->
-  <canvas id="pie-{{comp}}" width="250" height="250"></canvas>
+<div class="progress-bar-container">
 
-  <br>
-  <a href="/status/{{comp}}">Go to {{comp}} Status Page</a>
+<div
+class="progress-bar"
+data-progress="{{ data.progress }}"
+style="width: {{ data.progress | round(1) }}%">
+
+{{ data.progress | round(1) }}%
+
 </div>
+
+</div>
+
+<br>
+
+<canvas id="pie-{{ comp }}" width="250" height="250"></canvas>
+
+<br>
+
+<a href="/status/{{ comp }}">Go to {{ comp }} Status Page</a>
+
+</div>
+
 {% endfor %}
 
 <script>
-// Draw the pie charts
+
+// Function to compute progress color
+function progressColor(p) {
+
+    if (p < 25) return "#d73027";      // red
+    if (p < 50) return "#fc8d59";      // orange
+    if (p < 75) return "#fee08b";      // yellow
+    return "#1a9850";                  // green
+}
+
+// Apply colors to all progress bars
+document.querySelectorAll(".progress-bar").forEach(bar => {
+
+    let p = parseFloat(bar.dataset.progress)
+    bar.style.backgroundColor = progressColor(p)
+
+})
+
 {% for comp, data in summary.items() %}
-new Chart(document.getElementById("pie-{{comp}}"), {
-    type: 'pie',
+
+new Chart(document.getElementById("pie-{{ comp }}"), {
+
+    type: "pie",
+
     data: {
         labels: ["Good","Bad","Under Investigation"],
         datasets: [{
-            data: [{{data.good}}, {{data.bad}}, {{data.investigation}}],
+            data: [{{ data.good }}, {{ data.bad }}, {{ data.under }}],
             backgroundColor: ["green","red","orange"]
         }]
     }
+
 });
+
 {% endfor %}
+
 </script>
 
 <br>
 
-<a href="/submit">Enter Test Result</a>
-<a href="/tester_dashboard">Tester Dashboard</a>
+<a href="/submit">Enter Test Result</a> |
+<a href="/tester_dashboard">Tester Dashboard</a> |
 <a href="/calendar">Shift Calendar</a>
 
 </body>

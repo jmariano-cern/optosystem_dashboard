@@ -140,44 +140,5 @@ function sortTable(n) {
 }
 </script>
 
-<!-- <script> -->
-<!-- // Confirm script loaded -->
-<!-- console.log("sortTable script loaded"); -->
-
-<!-- // Sorting function -->
-<!-- function sortTable(n) { -->
-<!--     const table = document.getElementById("componentTable"); -->
-<!--     const tbody = table.tBodies[0]; -->
-<!--     const th = table.tHead.rows[0].cells[n]; -->
-
-<!--     // Track current sort direction -->
-<!--     let dir = th.getAttribute("data-sort-dir") || "asc"; -->
-
-<!--     const rowsArray = Array.from(tbody.rows); -->
-
-<!--     rowsArray.sort((a, b) => { -->
-<!--         let x = a.cells[n].dataset.sort; -->
-<!--         let y = b.cells[n].dataset.sort; -->
-
-<!--         // Try numeric comparison first -->
-<!--         let xNum = parseFloat(x); -->
-<!--         let yNum = parseFloat(y); -->
-<!--         if (!isNaN(xNum) && !isNaN(yNum)) { -->
-<!--             x = xNum; -->
-<!--             y = yNum; -->
-<!--         } -->
-
-<!--         if (dir === "asc") return (x > y) ? 1 : (x < y) ? -1 : 0; -->
-<!--         else return (x < y) ? 1 : (x > y) ? -1 : 0; -->
-<!--     }); -->
-
-<!--     // Reattach rows in sorted order -->
-<!--     rowsArray.forEach(row => tbody.appendChild(row)); -->
-
-<!--     // Toggle sort direction for next click -->
-<!--     th.setAttribute("data-sort-dir", dir === "asc" ? "desc" : "asc"); -->
-<!-- } -->
-<!-- </script> -->
-
 </body>
 </html>

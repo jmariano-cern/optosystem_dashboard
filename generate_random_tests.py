@@ -11,66 +11,116 @@ with open("config/components.json") as f:
 
 with open("config/testers.json") as f:
     testers_cfg = json.load(f)
-    # Convert to list of names in case some are dicts
-    testers = [t if isinstance(t, str) else t["name"] for t in testers_cfg]
 
 with open("config/failure_modes.json") as f:
     failure_modes_cfg = json.load(f)
 
+# Normalize tester names
+testers = [t if isinstance(t, str) else t["name"] for t in testers_cfg]
+
 # -------------------------
 # DATABASE
 # -------------------------
-db_file = "database.db"
-conn = sqlite3.connect(db_file)
+conn = sqlite3.connect("database.db")
 cur = conn.cursor()
 
 # -------------------------
-# HELPER FUNCTIONS
+# HELPERS
 # -------------------------
 def existing_count(component):
-    """Return the number of existing tests for a component."""
     cur.execute("SELECT COUNT(*) FROM tests WHERE component_type=?", (component,))
     return cur.fetchone()[0]
 
-def random_serial():
-    """Generate a random serial number (e.g., 8 alphanumeric chars)."""
-    return "".join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=8))
+
+def existing_serials(component):
+    cur.execute("SELECT serial_number FROM tests WHERE component_type=?", (component,))
+    return {r[0] for r in cur.fetchall()}
+
+
+def random_serial(existing):
+    while True:
+        s = "".join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", k=8))
+        if s not in existing:
+            existing.add(s)
+            return s
+
 
 def random_status():
-    return random.choice(["good", "bad", "under investigation"])
+    return random.choices(
+        ["good", "bad", "under investigation"],
+        weights=[0.75, 0.2, 0.05]  # realistic yields
+    )[0]
+
 
 def random_failure(component):
-    """Return a random failure mode for the component, or None."""
     modes = failure_modes_cfg.get(component, [])
-    return random.choice(modes) if modes else None
+    if not modes:
+        return None
+    return random.choice(modes)
+
 
 # -------------------------
-# GENERATE TESTS
+# TEST GENERATION
 # -------------------------
+
+start_date = datetime.today() - timedelta(days=120)  # ~4 months history
+today = datetime.today()
+
 for comp, cfg in components_cfg.items():
+
     goal = cfg["goal"]
     count_existing = existing_count(comp)
     remaining = goal - count_existing
+
     if remaining <= 0:
-        print(f"{comp}: already has {count_existing}/{goal}, skipping")
+        print(f"{comp}: already at goal ({count_existing}/{goal})")
         continue
 
-    print(f"{comp}: generating {remaining} random tests to reach goal {goal}")
+    serials = existing_serials(comp)
 
-    for _ in range(remaining):
-        serial = random_serial()
-        tester = random.choice(testers)
-        status = random_status()
-        failure = random_failure(comp) if status in ["bad", "under investigation"] else None
-        timestamp = datetime.now() - timedelta(days=random.randint(0,30))  # random past 30 days
+    print(f"{comp}: generating {remaining} tests")
 
-        cur.execute(
-            "INSERT INTO tests (component_type, serial_number, tester, status, failure_mode, timestamp) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (comp, serial, tester, status, failure, timestamp.isoformat())
-        )
+    current_day = start_date
+    generated = 0
 
-# Commit and close
+    while generated < remaining and current_day <= today:
+
+        # Skip weekends
+        if current_day.weekday() >= 5:
+            current_day += timedelta(days=1)
+            continue
+
+        # Random tests per day
+        tests_today = random.randint(1, 6)
+
+        for _ in range(tests_today):
+
+            if generated >= remaining:
+                break
+
+            serial = random_serial(serials)
+            tester = random.choice(testers)
+            status = random_status()
+
+            failure = None
+            if status in ["bad", "under investigation"]:
+                failure = random_failure(comp)
+
+            timestamp = current_day + timedelta(
+                hours=random.randint(8, 17),
+                minutes=random.randint(0, 59)
+            )
+
+            cur.execute(
+                "INSERT INTO tests (component_type, serial_number, tester, status, failure_mode, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (comp, serial, tester, status, failure, timestamp.isoformat())
+            )
+
+            generated += 1
+
+        current_day += timedelta(days=1)
+
 conn.commit()
 conn.close()
 

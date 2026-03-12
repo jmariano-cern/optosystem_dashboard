@@ -1,26 +1,34 @@
 {
   "BPOL2v5": {
-    "goal": 1878
+    "goal": 1878,
+    "color": "#1f77b4"
   },
   "Optoboard": {
-    "goal": 1878
+    "goal": 1878,
+    "color": "#ff7f0e"
   },
   "Optobox": {
-    "goal": 244
+    "goal": 244,
+    "color": "#2ca02c"
   },
   "Connectorboard": {
-    "goal": 263
+    "goal": 263,
+    "color": "#d62728"
   },
   "Powerboard": {
-    "goal": 263
+    "goal": 263,
+    "color": "#9467bd"
   },
   "MOPS": {
-    "goal": 263
+    "goal": 263,
+    "color": "#8c564b"
   },
   "Powercable": {
-    "goal": 263
+    "goal": 263,
+    "color": "#e377c2"
   },
   "CANcable": {
-    "goal": 263
+    "goal": 263,
+    "color": "#17becf"
   }
 }

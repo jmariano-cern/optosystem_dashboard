@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import math
 import matplotlib.colors as mcolors
 
-
 app = Flask(__name__)
 
 database = "database.db"
@@ -15,53 +14,48 @@ database = "database.db"
 # -------------------------
 
 with open("config/components.json") as f:
-    components = json.load(f)
+    components_cfg = json.load(f)
 
 with open("config/testers.json") as f:
-    testers = json.load(f)
+    testers_cfg = json.load(f)
 
 with open("config/failure_modes.json") as f:
-    failure_modes = json.load(f)
+    failure_modes_cfg = json.load(f)
 
-def generate_week_shifts(start_date=None):
-    """
-    Generate a week-long calendar dict (Monday → Sunday) with morning/afternoon shifts
-    for all components. Pre-populate slots even if no one has signed up.
-    """
-    if start_date is None:
-        start_date = datetime.today()
-    
-    # Find Monday of the current week
-    monday = start_date - timedelta(days=start_date.weekday())
-    
-    week_days = [(monday + timedelta(days=i)).date() for i in range(7)]
-    
-    # Build empty calendar
-    calendar = {}
-    for d in week_days:
-        calendar[d.isoformat()] = {"morning": [], "afternoon": []}
-        for shift in ["morning", "afternoon"]:
-            for comp in components:
-                calendar[d.isoformat()][shift].append({
-                    "component": comp,
-                    "tester": None,  # no one signed up yet
-                    "id": None       # will be filled from db if exists
-                })
-    
-    # Overlay actual shift data from DB
-    rows = query_db("SELECT * FROM shifts")
-    for r in rows:
-        d = r["date"]
-        shift = r["shift"]
-        comp = r["component_type"]
-        if d in calendar:
-            for slot in calendar[d][shift]:
-                if slot["component"] == comp:
-                    slot["tester"] = r["tester"]
-                    slot["id"] = r["id"]
-    
-    return calendar, week_days
-    
+# -------------------------
+# PREPARE COLORS
+# -------------------------
+
+def lighten_color(hex_color, factor=0.5):
+    """Return a lighter version of the hex color."""
+    rgb = mcolors.to_rgb(hex_color)
+    lighter = tuple(min(1, c + (1 - c) * factor) for c in rgb)
+    return mcolors.to_hex(lighter)
+
+# Assign base colors for components and testers if missing
+default_colors = [
+    "#FF5733", "#33C1FF", "#33FF57", "#FFC300",
+    "#C700FF", "#FF33A8", "#33FFF6", "#FF8C33"
+]
+
+components = {}
+for i, comp in enumerate(components_cfg):
+    base_color = components_cfg[comp].get("color") or default_colors[i % len(default_colors)]
+    components[comp] = {
+        "goal": components_cfg[comp]["goal"],
+        "color": base_color,
+        "light_color": lighten_color(base_color, 0.6)
+    }
+
+testers = {}
+for i, t in enumerate(testers_cfg):
+    base_color = t.get("color") if isinstance(t, dict) else default_colors[i % len(default_colors)]
+    testers_name = t if isinstance(t, str) else t["name"]
+    testers[testers_name] = {
+        "color": base_color,
+        "light_color": lighten_color(base_color, 0.6)
+    }
+
 # -------------------------
 # DATABASE HELPERS
 # -------------------------
@@ -70,8 +64,8 @@ def get_db():
     if "db" not in g:
         g.db = sqlite3.connect(
             database,
-            timeout=30,                # wait for locks
-            check_same_thread=False    # allow use in threaded servers
+            timeout=30,
+            check_same_thread=False
         )
         g.db.row_factory = sqlite3.Row
     return g.db
@@ -91,7 +85,7 @@ def execute_db(query, args=()):
 @app.teardown_appcontext
 def close_db(exception):
     db = g.pop("db", None)
-    if db is not None:
+    if db:
         db.close()
 
 # -------------------------
@@ -100,45 +94,35 @@ def close_db(exception):
 
 @app.route("/")
 def index():
-    # Build summary stats for each component
     summary = {}
     for comp in components:
         rows = query_db("SELECT * FROM tests WHERE component_type=?", (comp,))
         total = len(rows)
         good = sum(r["status"]=="good" for r in rows)
         bad = sum(r["status"]=="bad" for r in rows)
-        investigation = sum(r["status"]=="under investigation" for r in rows)
-        yield_estimate = good / total if total else 0
+        under = sum(r["status"]=="under investigation" for r in rows)
         goal = components[comp]["goal"]
-        progress = good / goal if goal else 0
+        progress = good / goal * 100 if goal else 0
+        yield_estimate = good / total if total else 0  # <-- Add this line
 
         summary[comp] = {
             "total": total,
             "good": good,
             "bad": bad,
-            "investigation": investigation,
-            "yield_estimate": yield_estimate,
-            "goal": goal,
-            "progress": progress
+            "under": under,
+            "progress": progress,
+            "yield_estimate": yield_estimate  # <-- Include it here
         }
-
-    return render_template(
-        "index.html",
-        components=components,
-        summary=summary
-    )
+    return render_template("index.html", components=components, summary=summary)
 
 # -------------------------
 # SUBMIT PAGE
 # -------------------------
 
-@app.route("/submit", methods=["GET", "POST"])
+@app.route("/submit", methods=["GET","POST"])
 def submit():
-
     message = None
-
     if request.method == "POST":
-
         component = request.form["component"]
         serial = request.form["serial"]
         tester = request.form["tester"]
@@ -151,34 +135,23 @@ def submit():
             (component, serial),
             one=True
         )
-
         if existing:
-            message = f"ERROR: {component} with serial number {serial} already exists."
-            return render_template(
-                "submit.html",
-                components=components,
-                testers=testers,
-                failure_modes=failure_modes,
-                message=message,
-                failures={}
+            message = f"ERROR: {component} with serial {serial} already exists."
+        else:
+            execute_db(
+                "INSERT INTO tests (component_type, serial_number, tester, status, failure_mode, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (component, serial, tester, status, failure, timestamp)
             )
-        
-        execute_db("""
-        INSERT INTO tests
-        (component_type, serial_number, tester, status, failure_mode, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (component, serial, tester, status, failure, timestamp))
-
-        message = f"Component {serial} recorded successfully."
+            message = f"{component} {serial} recorded successfully."
 
     return render_template(
         "submit.html",
         components=components,
         testers=testers,
-        failures=failure_modes,
+        failures=failure_modes_cfg,
         message=message
     )
-
 
 # -------------------------
 # STATUS PAGE
@@ -186,142 +159,118 @@ def submit():
 
 @app.route("/status/<component>")
 def status(component):
-    from datetime import datetime, timedelta
-    import math
-
-    # Fetch all tests for this component
     rows = query_db(
         "SELECT * FROM tests WHERE component_type=? ORDER BY timestamp",
         (component,)
     )
-
     total = len(rows)
-    good = sum(r["status"] == "good" for r in rows)
-    bad = sum(r["status"] == "bad" for r in rows)
-    investigation = sum(r["status"] == "under investigation" for r in rows)
-    yield_estimate = good / total if total else 0
+    good = sum(r["status"]=="good" for r in rows)
+    bad = sum(r["status"]=="bad" for r in rows)
+    under = sum(r["status"]=="under investigation" for r in rows)
+    goal = components_cfg[component]["goal"]
+    progress = good / goal * 100 if goal else 0
 
-    goal = components[component]["goal"]
-    progress = (good / goal * 100) if goal else 0
+    # Status counts for charts
+    status_counts = {"good": good, "bad": bad, "under investigation": under}
 
-    # --- Status counts for pie chart ---
-    status_counts = {
-        "good": good,
-        "bad": bad,
-        "under investigation": investigation
-    }
-
-    # --- Failure mode counts (bad + under investigation only) ---
+    # Failure mode counts
     failure_counts = {}
     for r in rows:
-        if r["status"] in ("bad", "under investigation") and r["failure_mode"]:
+        if r["status"] in ("bad","under investigation") and r["failure_mode"]:
             failure_counts[r["failure_mode"]] = failure_counts.get(r["failure_mode"], 0) + 1
 
-    # --- Forecasting logic ---
+    # Forecast
     if rows:
         first_ts = datetime.fromisoformat(rows[0]["timestamp"])
         last_ts = datetime.fromisoformat(rows[-1]["timestamp"])
     else:
         first_ts = last_ts = datetime.today()
 
-    # Number of business days since first test
     num_days = sum(
         1 for i in range((last_ts.date() - first_ts.date()).days + 1)
         if (first_ts.date() + timedelta(days=i)).weekday() < 5
     )
-
     avg_good_per_day = good / num_days if num_days else 0
     remaining_good = max(goal - good, 0)
 
-    # Predict expected completion date
-    if avg_good_per_day > 0:
-        expected_testing_days = remaining_good / avg_good_per_day
-        predicted_completion_date = datetime.today()
-        days_added = 0
-        while days_added < expected_testing_days:
-            predicted_completion_date += timedelta(days=1)
-            if predicted_completion_date.weekday() < 5:
-                days_added += 1
-        predicted_completion_date = predicted_completion_date.date()
-    else:
-        expected_testing_days = math.nan
-        predicted_completion_date = "NaN"
+    # Expected testing days until goal
+    expected_testing_days = remaining_good / avg_good_per_day if avg_good_per_day > 0 else float("inf")
 
-    forecast_data = {
+    # Predicted completion date (skip weekends)
+    predicted_date = datetime.today()
+    days_added = 0
+    if avg_good_per_day > 0:
+        while days_added < expected_testing_days:
+            predicted_date += timedelta(days=1)
+            if predicted_date.weekday() < 5:
+                days_added += 1
+        predicted_date = predicted_date.date()
+    else:
+        predicted_date = "NaN"
+
+    forecast = {
         "total_good": good,
         "first_day": first_ts.date(),
         "num_days": num_days,
         "avg_good_per_day": avg_good_per_day,
         "remaining_good": remaining_good,
         "expected_testing_days": expected_testing_days,
-        "predicted_completion_date": predicted_completion_date
+        "predicted_completion_date": predicted_date
     }
 
-    # --- Prepare Testing History for chart ---
-    history_dates = []
-    history_good = []
-    history_bad = []
-    history_under = []
+    # Recent tests
+    recent_tests = [dict(r) for r in rows[-20:][::-1]]
 
-    cumulative_good = cumulative_bad = cumulative_under = 0
-    for r in rows:
-        ts_date = datetime.fromisoformat(r["timestamp"]).date().isoformat()
-        history_dates.append(ts_date)
-        if r["status"] == "good":
-            cumulative_good += 1
-        elif r["status"] == "bad":
-            cumulative_bad += 1
-        elif r["status"] == "under investigation":
-            cumulative_under += 1
-        history_good.append(cumulative_good)
-        history_bad.append(cumulative_bad)
-        history_under.append(cumulative_under)
+    # Prepare component_colors dict with 'base' key for template
+    component_colors = {}
+    default_colors = [
+        "#FF5733", "#33C1FF", "#33FF57", "#FFC300",
+        "#C700FF", "#FF33A8", "#33FFF6", "#FF8C33"
+    ]
+    for i, comp in enumerate(components_cfg):
+        base = components_cfg[comp].get("color") or default_colors[i % len(default_colors)]
+        component_colors[comp] = {"base": base, "light": lighten_color(base, 0.6)}
 
-    # --- Recent tests (latest 20) ---
-    recent_tests = rows[-20:][::-1]  # most recent first
-
-    # Optional: failure mode colors
-    failure_mode_colors = ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40"]
-    # repeat colors if more modes
-    while len(failure_mode_colors) < len(failure_counts):
-        failure_mode_colors *= 2
-    failure_mode_colors = failure_mode_colors[:len(failure_counts)]
+    # Prepare tester_colors dict mapping tester -> color
+    tester_colors = {}
+    for i, t in enumerate(testers_cfg):
+        base = default_colors[i % len(default_colors)]
+        tester_colors[t] = base
 
     return render_template(
         "status.html",
         component=component,
-        total=total,
-        yield_estimate=yield_estimate,
         goal=goal,
         progress=progress,
         status_counts=status_counts,
         failure_mode_counts=failure_counts,
-        failure_mode_colors=failure_mode_colors,
-        history_dates=history_dates,
-        history_good=history_good,
-        history_bad=history_bad,
-        history_under=history_under,
-        recent_tests=[dict(r) for r in recent_tests],
-        forecast=forecast_data
+        history_dates=[datetime.fromisoformat(r["timestamp"]).date().isoformat() for r in rows],
+        history_good=[sum(1 for x in rows[:i+1] if x["status"]=="good") for i in range(len(rows))],
+        history_bad=[sum(1 for x in rows[:i+1] if x["status"]=="bad") for i in range(len(rows))],
+        history_under=[sum(1 for x in rows[:i+1] if x["status"]=="under investigation") for i in range(len(rows))],
+        recent_tests=recent_tests,
+        forecast=forecast,
+        component_colors=component_colors,
+        tester_colors=tester_colors
     )
 
 # -------------------------
 # LIST COMPONENT TESTS
 # -------------------------
-@app.route("/list/<component>")
+
+@app.route("/list/<component>", endpoint="list_component")
 def list_component(component):
-    # Fetch all tests for this component
     rows = query_db("SELECT * FROM tests WHERE component_type=? ORDER BY timestamp DESC", (component,))
     return render_template(
         "list_component.html",
         component=component,
         rows=[dict(r) for r in rows],
         testers=testers,
-        failure_modes=failure_modes.get(component, [])
+        failure_modes=failure_modes_cfg.get(component, [])
     )
 
 # -------------------------
-# UPDATE TEST ENTRY
+# UPDATE / DELETE TESTS
 # -------------------------
 
 @app.route("/update_test/<int:test_id>", methods=["POST"])
@@ -330,180 +279,72 @@ def update_test(test_id):
     status = request.form["status"]
     tester = request.form["tester"]
     failure_mode = request.form.get("failure_mode")
-
-    execute_db("""
-        UPDATE tests
-        SET serial_number=?, status=?, tester=?, failure_mode=?
-        WHERE id=?
-    """, (serial, status, tester, failure_mode, test_id))
-
-    # Get component type
-    row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,))
-    component = row[0]["component_type"] if row else "Unknown"
-
-    # Simple feedback message
-    message = f"Test ID {test_id} updated successfully."
-
-    # Redirect back to the list page with message via query string
-    return redirect(url_for("list_component", component=component, message=message))
+    execute_db(
+        "UPDATE tests SET serial_number=?, status=?, tester=?, failure_mode=? WHERE id=?",
+        (serial, status, tester, failure_mode, test_id)
+    )
+    row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,), one=True)
+    component = row["component_type"] if row else "Unknown"
+    return redirect(url_for("list_component", component=component, message=f"Updated test {test_id}"))
 
 @app.route("/delete_test/<int:test_id>", methods=["POST"])
 def delete_test(test_id):
-    row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,))
-    component = row[0]["component_type"] if row else "Unknown"
-
+    row = query_db("SELECT component_type FROM tests WHERE id=?", (test_id,), one=True)
+    component = row["component_type"] if row else "Unknown"
     execute_db("DELETE FROM tests WHERE id=?", (test_id,))
+    return redirect(url_for("list_component", component=component, message=f"Deleted test {test_id}"))
 
-    message = f"Test ID {test_id} deleted successfully."
-    return redirect(url_for("list_component", component=component, message=message))
+# -------------------------
+# TESTER DASHBOARD
+# -------------------------
 
 @app.route("/tester_dashboard")
 def tester_dashboard():
     tester_summary = {}
-
-    # component → tester counts (for pie charts)
     for comp in components:
-        rows = query_db(
-            "SELECT tester FROM tests WHERE component_type=?",
-            (comp,)
-        )
-
+        rows = query_db("SELECT tester FROM tests WHERE component_type=?", (comp,))
         counts = {}
         for r in rows:
-            tester = r["tester"] or "Unknown"
-            counts[tester] = counts.get(tester, 0) + 1
-
+            t = r["tester"] or "Unknown"
+            counts[t] = counts.get(t,0) + 1
         tester_summary[comp] = counts
 
-    # tester → component counts (for stacked bar chart)
     rows = query_db("SELECT tester, component_type FROM tests")
-
     tester_component_counts = {}
-
     for r in rows:
-        tester = r["tester"] or "Unknown"
+        t = r["tester"] or "Unknown"
         comp = r["component_type"]
+        if t not in tester_component_counts:
+            tester_component_counts[t] = {c:0 for c in components}
+        tester_component_counts[t][comp] += 1
 
-        if tester not in tester_component_counts:
-            tester_component_counts[tester] = {c:0 for c in components}
+    # Prepare component_colors dict with 'base' key for template                                                                               
+    component_colors = {}
+    default_colors = [
+	"#FF5733", "#33C1FF", "#33FF57", "#FFC300",
+	"#C700FF", "#FF33A8", "#33FFF6", "#FF8C33"
+    ]
+    for i, comp in enumerate(components_cfg):
+        base = components_cfg[comp].get("color") or default_colors[i % len(default_colors)]
+        component_colors[comp] = {"base": base, "light": lighten_color(base, 0.6)}
 
-        tester_component_counts[tester][comp] += 1
-
+    # Prepare tester_colors dict mapping tester -> color                                                                                       
+    tester_colors = {}
+    for i, t in enumerate(testers_cfg):
+        base = default_colors[i % len(default_colors)]
+        tester_colors[t] = base
+        
     return render_template(
         "tester_dashboard.html",
-        components=components,
         tester_summary=tester_summary,
-        tester_component_counts=tester_component_counts
-    )
-
-@app.route("/calendar")
-def calendar_page():
-
-    today = datetime.today().date()
-
-    # Week offset parameter
-    week_offset = int(request.args.get("week", 0))
-
-    # Find Sunday of current week
-    this_sunday = today - timedelta(days=(today.weekday() + 1) % 7)
-
-    # Apply offset
-    start_of_week = this_sunday + timedelta(days=7 * week_offset)
-
-    # Build week
-    days = [start_of_week + timedelta(days=i) for i in range(7)]
-
-    # Query shifts
-    rows = query_db(
-        "SELECT * FROM shifts WHERE date BETWEEN ? AND ? ORDER BY date, shift, component_type",
-        (days[0].isoformat(), days[-1].isoformat())
-    )
-
-    calendar = {}
-    for d in days:
-        calendar[d] = {"morning": [], "afternoon": []}
-
-    for r in rows:
-        d = datetime.fromisoformat(r["date"]).date()
-        calendar[d][r["shift"]].append({
-            "component": r["component_type"],
-            "tester": r["tester"],
-            "id": r["id"]
-        })
-
-    pastel_colors = [
-        "#FFB3BA","#BAE1FF","#BAFFC9","#FFFFBA",
-        "#FFDFBA","#D5BAFF","#FFBAF0","#BAFFD9"
-    ]
-
-    dark_colors = [
-        "#FF7A70","#70A7FF","#70FFA0","#FFFF70",
-        "#FFB070","#A070FF","#FF70D0","#70FFB0"
-    ]
-
-    component_colors = {
-        comp: {
-            "open": pastel_colors[i % len(pastel_colors)],
-            "taken": dark_colors[i % len(dark_colors)]
-        }
-        for i, comp in enumerate(components)
-    }
-
-    return render_template(
-        "calendar.html",
-        calendar=calendar,
-        days=days,
-        today=today,
+        tester_component_counts=tester_component_counts,
         components=components,
-        component_colors=component_colors,
-        week_offset=week_offset
-    )
-
-@app.route("/shift/<int:shift_id>", methods=["GET", "POST"])
-def edit_shift(shift_id):
-    # Fetch the shift row from DB if it exists
-    row = query_db(
-        "SELECT * FROM shifts WHERE id=?",
-        (shift_id,),
-        one=True
-    )
-
-    if request.method == "POST":
-        tester = request.form.get("tester", "").strip() or None
-
-        if row:
-            # Update existing shift
-            execute_db(
-                "UPDATE shifts SET tester=? WHERE id=?",
-                (tester, shift_id)
-            )
-            message = f"Shift updated successfully for {row['component_type']} on {row['date']} ({row['shift']})"
-        else:
-            # Insert new shift if it didn't exist
-            # Expect hidden fields to provide date, shift, component
-            date_val = request.form["date"]
-            shift_val = request.form["shift"]
-            component_val = request.form["component"]
-
-            execute_db(
-                "INSERT INTO shifts (date, shift, component_type, tester) VALUES (?, ?, ?, ?)",
-                (date_val, shift_val, component_val, tester)
-            )
-            message = f"Shift created successfully for {component_val} on {date_val} ({shift_val})"
-
-        return redirect("/calendar")
-
-    # GET request: render form
-    return render_template(
-        "edit_shift.html",
-        shift=row,
-        testers=testers,
-        message=None
+        tester_colors=tester_colors,
+        component_colors=component_colors
     )
 
 # -------------------------
 # RUN SERVER
 # -------------------------
-
 if __name__ == "__main__":
     app.run(debug=True)

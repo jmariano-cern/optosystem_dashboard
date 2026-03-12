@@ -1,18 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Tester Dashboard</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-.chart-container{
-    width:400px;
-    display:inline-block;
-    margin:20px;
-}
-</style>
-
+    <title>Tester Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            width: 400px;
+            display: inline-block;
+            margin: 20px;
+        }
+    </style>
 </head>
 <body>
 
@@ -23,15 +20,17 @@
 
 <h2>Tests Per Tester (by Component)</h2>
 
-<div style="width:700px;">
-<canvas id="testerStackedChart"></canvas>
+<div style="width:700px; height:400px;">
+    <canvas id="testerStackedChart"></canvas>
 </div>
 
 <script>
-let data = {{ tester_component_counts | tojson }};
+// Data from Flask
+let testerData = {{ tester_component_counts | tojson }};
+let componentColors = {{ component_colors | tojson }};
 
-// Sort testers by total tests
-let entries = Object.entries(data).sort((a,b)=>{
+// Convert dict to entries and sort by total tests descending
+let entries = Object.entries(testerData).sort((a,b)=>{
     let sumA = Object.values(a[1]).reduce((x,y)=>x+y,0);
     let sumB = Object.values(b[1]).reduce((x,y)=>x+y,0);
     return sumB - sumA;
@@ -40,9 +39,11 @@ let entries = Object.entries(data).sort((a,b)=>{
 let testers = entries.map(e => e[0]);
 let components = Object.keys(entries[0][1]);
 
+// Create datasets for stacked bar chart
 let datasets = components.map(comp => ({
     label: comp,
     data: entries.map(e => e[1][comp]),
+    backgroundColor: componentColors[comp]['base']
 }));
 
 new Chart(
@@ -54,14 +55,9 @@ new Chart(
             datasets: datasets
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
             scales: {
                 x: { stacked: true },
-                y: {
-                    stacked: true,
-                    beginAtZero: true
-                }
+                y: { stacked: true, beginAtZero: true }
             }
         }
     }
@@ -70,36 +66,30 @@ new Chart(
 
 <h2>Component breakdowns by tester</h2>
 
-{% for comp in tester_summary %}
+{% for comp, tester_counts in tester_summary.items() %}
 <div class="chart-container">
+    <h3 style="color: {{ component_colors[comp]['base'] }}">{{ comp }}</h3>
+    <canvas id="chart_{{ loop.index }}"></canvas>
+    <script>
+        let data_{{ loop.index }} = {{ tester_counts | tojson }};
+        let labels = Object.keys(data_{{ loop.index }});
+        let values = Object.values(data_{{ loop.index }});
+        let bgColors = labels.map(t => "{{ tester_colors.get(t,'#888888') }}");  // fallback color
 
-<h3>{{comp}}</h3>
-
-<canvas id="chart_{{loop.index}}"></canvas>
-
-<script>
-let data_{{loop.index}} = {{ tester_summary[comp] | tojson }};
-
-new Chart(
-    document.getElementById("chart_{{loop.index}}"),
-    {
-        type: "pie",
-        data: {
-            labels: Object.keys(data_{{loop.index}}),
-            datasets: [{
-                data: Object.values(data_{{loop.index}})
-            }]
-        },
-        options:{
-            responsive:true,
-            plugins:{
-                legend:{position:"right"}
+        new Chart(
+            document.getElementById("chart_{{ loop.index }}"),
+            {
+                type: "pie",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: bgColors
+                    }]
+                }
             }
-        }
-    }
-);
-</script>
-
+        );
+    </script>
 </div>
 {% endfor %}
 
