@@ -25,7 +25,7 @@ body {
     width: 100%;
     background: #eee;
     border: 1px solid #999;
-    border-radius: 5px;
+    border-radius: 6px;
     overflow: hidden;
 }
 
@@ -35,9 +35,11 @@ body {
     color: black;
     line-height: 25px;
     font-weight: bold;
+    transition: width 0.8s ease;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -56,6 +58,8 @@ body {
 <b>Good:</b> {{ data.good }}<br>
 <b>Yield:</b> {{ (data.yield_estimate * 100) | round(2) }} %<br><br>
 
+<!-- Progress bar -->
+
 <div class="progress-bar-container">
 
 <div
@@ -71,6 +75,8 @@ style="width: {{ data.progress | round(1) }}%">
 
 <br>
 
+<!-- Status composition pie chart -->
+
 <canvas id="pie-{{ comp }}" width="250" height="250"></canvas>
 
 <br>
@@ -83,22 +89,37 @@ style="width: {{ data.progress | round(1) }}%">
 
 <script>
 
-// Function to compute progress color
+/* ------------------------------------------------
+Progress bar coloring
+------------------------------------------------ */
+
 function progressColor(p) {
 
-    if (p < 25) return "#d73027";      // red
-    if (p < 50) return "#fc8d59";      // orange
-    if (p < 75) return "#fee08b";      // yellow
-    return "#1a9850";                  // green
+    p = Math.max(0, Math.min(100, p))
+
+    // Turn fully green when essentially complete
+    if (p >= 95) {
+        return "#1a9850"
+    }
+
+    // Otherwise red -> yellow-green gradient
+    const MAX_HUE = 90
+    let hue = (p / 95) * MAX_HUE
+
+    return `hsl(${hue}, 75%, 45%)`
 }
 
-// Apply colors to all progress bars
 document.querySelectorAll(".progress-bar").forEach(bar => {
 
     let p = parseFloat(bar.dataset.progress)
+
     bar.style.backgroundColor = progressColor(p)
 
 })
+
+/* ------------------------------------------------
+Pie charts
+------------------------------------------------ */
 
 {% for comp, data in summary.items() %}
 
@@ -127,4 +148,5 @@ new Chart(document.getElementById("pie-{{ comp }}"), {
 <a href="/calendar">Shift Calendar</a>
 
 </body>
+
 </html>

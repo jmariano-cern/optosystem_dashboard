@@ -24,6 +24,7 @@ body{
     background-color:#ddd;
     border-radius:5px;
     margin-bottom:20px;
+    overflow:hidden;
 }
 
 .progress-bar{
@@ -33,6 +34,7 @@ body{
     line-height:25px;
     border-radius:5px;
     font-weight:bold;
+    transition: width 0.8s ease;
 }
 
 .component-title{
@@ -58,8 +60,10 @@ body{
 
 <div class="progress-bar-container">
 
-<div class="progress-bar"
-style="width: {{ progress }}%; background-color: {{ component_colors[component]['base'] }};">
+<div
+class="progress-bar"
+data-progress="{{ progress }}"
+style="width: {{ progress }}%;">
 
 {{ progress|round(1) }}% ({{ forecast.total_good }}/{{ goal }})
 
@@ -146,6 +150,36 @@ style="color: {{ tester_colors.get(row.tester,'black') }}">
 
 <script>
 
+/* -----------------------------------
+Progress bar coloring (same as index)
+----------------------------------- */
+
+function progressColor(p){
+
+    p = Math.max(0, Math.min(100, p))
+
+    if(p >= 95){
+        return "#1a9850"
+    }
+
+    const MAX_HUE = 90
+    let hue = (p / 95) * MAX_HUE
+
+    return `hsl(${hue}, 75%, 45%)`
+}
+
+document.querySelectorAll(".progress-bar").forEach(bar => {
+
+    let p = parseFloat(bar.dataset.progress)
+    bar.style.backgroundColor = progressColor(p)
+
+})
+
+
+/* -----------------------------------
+Status pie chart
+----------------------------------- */
+
 new Chart(
 document.getElementById('statusPieChart'),
 {
@@ -164,6 +198,11 @@ backgroundColor:['green','orange','red']
 }
 );
 
+
+/* -----------------------------------
+Failure mode chart
+----------------------------------- */
+
 new Chart(
 document.getElementById('failurePieChart'),
 {
@@ -176,6 +215,11 @@ data: {{ failure_mode_counts.values() | list | tojson }}
 }
 }
 );
+
+
+/* -----------------------------------
+Testing history chart
+----------------------------------- */
 
 new Chart(
 document.getElementById('historyChart'),
