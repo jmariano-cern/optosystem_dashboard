@@ -1,7 +1,7 @@
 import json
 import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, g
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import matplotlib.colors as mcolors
 
 app = Flask(__name__)
@@ -444,11 +444,20 @@ def tester_dashboard():
     # NEW: Shifts per tester per component
     # ------------------------------------
 
+    today = date.today().isoformat()
+    
     rows = query_db("""
-        SELECT tester, component_type
-        FROM shifts
-        WHERE tester IS NOT NULL
-    """)
+    SELECT tester, component_type
+    FROM shifts
+    WHERE tester IS NOT NULL
+    AND date <= ?
+    """, (today,))
+    
+    # rows = query_db("""
+    #     SELECT tester, component_type
+    #     FROM shifts
+    #     WHERE tester IS NOT NULL
+    # """)
 
     tester_shift_counts = {}
 
