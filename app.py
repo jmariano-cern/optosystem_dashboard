@@ -134,6 +134,17 @@ def close_db(exception):
 @app.route("/")
 def index():
 
+    return render_template(
+        "index.html"
+    )
+
+# -------------------------
+# HOME PAGE
+# -------------------------
+
+@app.route("/component_dashboard")
+def component_dashboard():
+
     summary = {}
 
     for comp in components:
@@ -164,7 +175,7 @@ def index():
         }
 
     return render_template(
-        "index.html",
+        "component_dashboard.html",
         components=components,
         summary=summary
     )

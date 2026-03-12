@@ -1,98 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Component Testing Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="UTF-8">
+<title>Opto Dashboard</title>
 <style>
-.component-card {
-    border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 20px;
-    display: inline-block;
-    vertical-align: top;
-    width: 300px;
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    text-align: center;
 }
 
-.progress-bar-container {
-    width: 100%;
-    background: #eee;
-    border: 1px solid #999;
-    border-radius: 5px;
-    position: relative;
-    height: 25px;
-    margin-bottom: 5px;
-    overflow: hidden;  /* ensure progress doesn't overflow */
+h1 {
+    margin-bottom: 50px;
 }
 
-.progress-bar {
-    height: 100%;
-    border-radius: 5px;
-}
-
-.progress-label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+.card-container {
     display: flex;
-    align-items: center;
     justify-content: center;
-    font-weight: bold;
+    gap: 40px;
+    flex-wrap: wrap;
+}
+
+.card {
+    background-color: #f0f0f0;
+    border-radius: 12px;
+    width: 220px;
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-decoration: none;
     color: black;
-    pointer-events: none;  /* prevent interference if clicking the bar */
+    font-size: 20px;
+    font-weight: bold;
+    box-shadow: 2px 4px 8px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 4px 8px 16px rgba(0,0,0,0.3);
 }
 </style>
 </head>
 <body>
 
-<h1>Project Overview</h1>
+<h1>Optosystem Production Testing Dashboard</h1>
 
-{% for comp, data in summary.items() %}
-<div class="component-card">
-  <h3 style="color: {{ components[comp]['color'] }}">{{ comp }}</h3>
-
-  <b>Total Good:</b> {{ data.good }} / {{ data.total }}<br>
-  <b>Yield:</b> {{ (data.yield_estimate*100)|round(2) }} %<br><br>
-
-  <!-- Progress bar -->
-  <div class="progress-bar-container">
-    <div class="progress-bar"
-         style="width: {{ data.progress | round(1) }}%; background-color: hsl({{ data.progress * 120 / 100 }}, 100%, 50%)">
-    </div>
-    <div class="progress-label">
-      {{ data.progress | round(1) }}% ({{ data.good }}/{{ data.goal }})
-    </div>
-  </div>
-
-  <!-- Status composition pie chart -->
-  <canvas id="pie-{{ comp }}" width="250" height="250"></canvas>
-
-  <br>
-  <a href="/status/{{ comp }}">Go to {{ comp }} Status Page</a>
+<div class="card-container">
+    <a class="card" href="/component_dashboard">Component Dashboard</a>
+    <a class="card" href="/tester_dashboard">Tester Dashboard</a>
+    <a class="card" href="/calendar">Shift Calendar</a>
 </div>
-{% endfor %}
-
-<script>
-// Draw the pie charts
-{% for comp, data in summary.items() %}
-new Chart(document.getElementById("pie-{{ comp }}"), {
-    type: 'pie',
-    data: {
-        labels: ["Good","Bad","Under Investigation"],
-        datasets: [{
-            data: [{{ data.good }}, {{ data.bad }}, {{ data.under }}],
-            backgroundColor: ["green","red","orange"]
-        }]
-    }
-});
-{% endfor %}
-</script>
-
-<br>
-<a href="/submit">Enter Test Result</a>
-<a href="/tester_dashboard">Tester Dashboard</a>
-<a href="/calendar">Shift Calendar</a>
 
 </body>
 </html>
