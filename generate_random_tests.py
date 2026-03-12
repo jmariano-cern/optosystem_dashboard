@@ -1,7 +1,7 @@
 import json
 import sqlite3
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 # -------------------------
 # CONFIG FILES
@@ -48,7 +48,7 @@ def random_serial(existing):
 def random_status():
     return random.choices(
         ["good", "bad", "under investigation"],
-        weights=[0.75, 0.2, 0.05]  # realistic yields
+        weights=[0.75, 0.2, 0.05]
     )[0]
 
 
@@ -58,54 +58,40 @@ def random_failure(component):
         return None
     return random.choice(modes)
 
-
 # -------------------------
-# TEST GENERATION
+# GENERATE TESTS
 # -------------------------
-
 start_date = datetime.today() - timedelta(days=120)  # ~4 months history
 today = datetime.today()
 
 for comp, cfg in components_cfg.items():
-
     goal = cfg["goal"]
     count_existing = existing_count(comp)
     remaining = goal - count_existing
-
     if remaining <= 0:
         print(f"{comp}: already at goal ({count_existing}/{goal})")
         continue
 
     serials = existing_serials(comp)
-
     print(f"{comp}: generating {remaining} tests")
 
     current_day = start_date
     generated = 0
 
     while generated < remaining and current_day <= today:
-
-        # Skip weekends
-        if current_day.weekday() >= 5:
+        if current_day.weekday() >= 5:  # skip weekends
             current_day += timedelta(days=1)
             continue
 
-        # Random tests per day
         tests_today = random.randint(1, 6)
-
         for _ in range(tests_today):
-
             if generated >= remaining:
                 break
 
             serial = random_serial(serials)
             tester = random.choice(testers)
             status = random_status()
-
-            failure = None
-            if status in ["bad", "under investigation"]:
-                failure = random_failure(comp)
-
+            failure = random_failure(comp) if status in ["bad", "under investigation"] else None
             timestamp = current_day + timedelta(
                 hours=random.randint(8, 17),
                 minutes=random.randint(0, 59)
@@ -116,12 +102,37 @@ for comp, cfg in components_cfg.items():
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (comp, serial, tester, status, failure, timestamp.isoformat())
             )
-
             generated += 1
 
         current_day += timedelta(days=1)
 
 conn.commit()
+print("Random tests generated.")
+
+# -------------------------
+# GENERATE SHIFTS
+# -------------------------
+today_date = date.today()
+year_start = date(today_date.year, 1, 1)
+year_end = date(today_date.year + 1, 12, 31)
+
+current_day = year_start
+shifts_to_insert = []
+
+while current_day <= year_end:
+    if current_day.weekday() < 5:  # Mon-Fri
+        for comp in components_cfg:
+            for shift in ["morning", "afternoon"]:
+                # Assign a tester 70% of the time
+                tester = random.choice(testers) if random.random() < 0.7 else None
+                shifts_to_insert.append((current_day.isoformat(), shift, comp, tester))
+    current_day += timedelta(days=1)
+
+cur.executemany("""
+    INSERT OR REPLACE INTO shifts (date, shift, component_type, tester)
+    VALUES (?, ?, ?, ?)
+""", shifts_to_insert)
+conn.commit()
 conn.close()
 
-print("Random test generation complete.")
+print("Random shifts generated.")

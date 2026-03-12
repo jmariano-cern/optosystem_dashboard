@@ -48,7 +48,7 @@ for i, comp in enumerate(components_cfg):
     components[comp] = {
         "goal": components_cfg[comp]["goal"],
         "color": base_color,
-        "light_color": lighten_color(base_color, 0.6)
+        "light_color": lighten_color(base_color, 0.7)
     }
 
 # -------------------------
