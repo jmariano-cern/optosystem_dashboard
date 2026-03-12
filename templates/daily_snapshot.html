@@ -37,10 +37,19 @@ body {
     background-color: #eee;
 }
 
-/* Open shifts: only status column */
+/* Open shift highlight */
 .status-open {
-    background-color: #ff4d4d; /* red background */
-    color: #111;               /* dark text */
+    background-color: #ff4d4d;
+    color: #111;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+/* Inactive label */
+.status-inactive {
+    color: #888;
     font-weight: bold;
 }
 
@@ -48,9 +57,11 @@ body {
 .component-name {
     font-weight: bold;
 }
+
 .tester-name {
     font-weight: bold;
 }
+
 .chart-container {
     width: 400px;
     height: 300px;
@@ -58,7 +69,9 @@ body {
 }
 </style>
 </head>
+
 <body>
+
 <a href="/">Main Page</a> |
 <a href="/component_dashboard">Component Dashboard</a> |
 <a href="/tester_dashboard">Tester Dashboard</a> |
@@ -69,100 +82,101 @@ body {
 <h1>Daily Snapshot - {{ today }}</h1>
 
 <h2>Today's Shifts</h2>
+
 <table class="shifts-table">
+
 <thead>
 <tr>
 <th>Shift</th>
 <th>Component</th>
 <th>Tester</th>
-<th>Status</th>
 </tr>
 </thead>
+
 <tbody>
+
 {% for shift_time in ['morning','afternoon'] %}
-<tr class="shift-header"><td colspan="4">{{ shift_time|capitalize }}</td></tr>
-{% for shift in calendar[shift_time] %}
-    {% set comp_cfg = components[shift.component] %}
-    {% if not comp_cfg.active %}
-        {% set status_text = 'INACTIVE' %}
-        {% set row_class = 'shift-inactive' %}
-        {% set status_class = '' %}
-    {% elif not shift.tester %}
-        {% set status_text = 'OPEN' %}
-        {% set row_class = '' %}
-        {% set status_class = 'status-open' %}
-    {% else %}
-        {% set status_text = 'ASSIGNED' %}
-        {% set row_class = '' %}
-        {% set status_class = '' %}
-    {% endif %}
-<tr class="{{ row_class }}">
-    <td>{{ shift_time|capitalize }}</td>
-    <td class="component-name" style="color: {{ component_colors[shift.component] }}">{{ shift.component }}</td>
-    <td class="tester-name" style="color: {{ tester_colors.get(shift.tester,'black') }}">{{ shift.tester or '' }}</td>
-    <td class="{{ status_class }}">{{ status_text }}</td>
+<tr class="shift-header">
+<td colspan="3">{{ shift_time|capitalize }}</td>
 </tr>
+
+{% for shift in calendar[shift_time] %}
+{% set comp_cfg = components[shift.component] %}
+
+<tr class="{% if not comp_cfg.active %}shift-inactive{% endif %}">
+
+<td>{{ shift_time|capitalize }}</td>
+
+<td class="component-name"
+style="color: {{ component_colors[shift.component] }}">
+{{ shift.component }}
+</td>
+
+<td>
+
+{% if not comp_cfg.active %}
+    <span class="status-inactive">INACTIVE</span>
+
+{% elif not shift.tester %}
+    <span class="status-open">OPEN</span>
+
+{% else %}
+    <span class="tester-name"
+    style="color: {{ tester_colors.get(shift.tester,'black') }}">
+    {{ shift.tester }}
+    </span>
+{% endif %}
+
+</td>
+
+</tr>
+
 {% endfor %}
 {% endfor %}
+
 </tbody>
 </table>
 
-<!-- templates/daily_snapshot.html -->
+
 <h2>Components Tested Today</h2>
+
 {% for comp, stats in components_tested_today.items() %}
-    {% if components[comp].active %}
-        <h3 style="color: {{ component_colors[comp] }}">{{ comp }} ({{ stats.total }} tested today)</h3>
-        <div class="chart-container">
-            <canvas id="chart_{{ comp }}"></canvas>
-        </div>
-    {% endif %}
+{% if components[comp].active %}
+
+<h3 style="color: {{ component_colors[comp] }}">
+{{ comp }} ({{ stats.total }} tested today)
+</h3>
+
+<div class="chart-container">
+<canvas id="chart_{{ comp }}"></canvas>
+</div>
+
+{% endif %}
 {% endfor %}
 
 <script>
+
 {% for comp, stats in components_tested_today.items() %}
-    {% if components[comp].active %}
+{% if components[comp].active %}
+
 new Chart(
 document.getElementById('chart_{{ comp }}'),
 {
 type: 'pie',
 data: {
-    labels: ['Good','Under Investigation','Bad'],
-    datasets: [{
-        data: [{{ stats.good }}, {{ stats.under }}, {{ stats.bad }}],
-        backgroundColor: ['green','orange','red']
-    }]
+labels: ['Good','Under Investigation','Bad'],
+datasets: [{
+data: [{{ stats.good }}, {{ stats.under }}, {{ stats.bad }}],
+backgroundColor: ['green','orange','red']
+}]
 }
 }
 );
-    {% endif %}
+
+{% endif %}
 {% endfor %}
+
 </script>
-
-<!-- <h2>Components Tested Today</h2> -->
-<!-- {% for comp, stats in components_tested_today.items() %} -->
-<!--     <h3 style="color: {{ component_colors[comp] }}">{{ comp }} ({{ stats.total }} tested today)</h3> -->
-<!--     <div class="chart-container"> -->
-<!--         <canvas id="chart_{{ comp }}"></canvas> -->
-<!--     </div> -->
-<!-- {% endfor %} -->
-
-<!-- <script> -->
-<!-- {% for comp, stats in components_tested_today.items() %} -->
-<!-- new Chart( -->
-<!-- document.getElementById('chart_{{ comp }}'), -->
-<!-- { -->
-<!-- type: 'pie', -->
-<!-- data: { -->
-<!--     labels: ['Good','Under Investigation','Bad'], -->
-<!--     datasets: [{ -->
-<!--         data: [{{ stats.good }}, {{ stats.under }}, {{ stats.bad }}], -->
-<!--         backgroundColor: ['green','orange','red'] -->
-<!--     }] -->
-<!-- } -->
-<!-- } -->
-<!-- ); -->
-<!-- {% endfor %} -->
-<!-- </script> -->
 
 </body>
 </html>
