@@ -7,47 +7,55 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-
-body{
+body {
     font-family: Arial, sans-serif;
-    margin:20px;
+    margin: 20px;
 }
 
-.chart-container{
-    width:600px;
-    height:300px;
-    margin-bottom:40px;
+.chart-container {
+    width: 600px;
+    height: 300px;
+    margin-bottom: 40px;
 }
 
-.progress-bar-container{
-    width:600px;
-    background-color:#ddd;
-    border-radius:5px;
-    margin-bottom:20px;
-    overflow:hidden;
+.progress-bar-container {
+    width: 350px;          /* fixed width so it doesn't stretch */
+    background-color: #ddd;
+    border-radius: 5px;
+    position: relative;
+    height: 25px;
+    margin-bottom: 10px;   /* space below bar for extra text */
+    overflow: hidden;
 }
 
-.progress-bar{
-    height:25px;
-    text-align:center;
-    color:black;
-    line-height:25px;
-    border-radius:5px;
-    font-weight:bold;
-    transition: width 0.8s ease;
+.progress-bar {
+    height: 100%;
+    border-radius: 5px;
 }
 
-.component-title{
+.progress-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: black;
+    pointer-events: none;
+}
+
+.component-title {
     color: {{ component_colors[component]['base'] }};
 }
 
-.tester-name{
-    font-weight:bold;
+.tester-name {
+    font-weight: bold;
 }
-
 </style>
 </head>
-
 <body>
 
 <h1 class="component-title">Status for {{ component }}</h1>
@@ -59,44 +67,39 @@ body{
 <h2>Progress</h2>
 
 <div class="progress-bar-container">
-
-<div
-class="progress-bar"
-data-progress="{{ progress }}"
-style="width: {{ progress }}%;">
-
-{{ progress|round(1) }}% ({{ forecast.total_good }}/{{ goal }})
-
+  <div class="progress-bar" 
+       style="width: {{ progress }}%; background-color: hsl({{ progress * 120 / 100 }}, 100%, 50%)">
+  </div>
+  <div class="progress-label">{{ progress|round(1) }}% ({{ forecast.total_good }}/{{ goal }})</div>
 </div>
 
-</div>
+<p><b>Total tested:</b> {{ forecast.total_good + status_counts['bad'] + status_counts['under investigation'] }}</p>
+<p><b>Yield estimate:</b>
+{{ ((forecast.total_good) / (forecast.total_good + status_counts['bad'] + status_counts['under investigation']) * 100) | round(2) if (forecast.total_good + status_counts['bad'] + status_counts['under investigation']) > 0 else 0 }} %
+</p>
 
 <h2>Forecast / Completion Prediction</h2>
-
 <p>Total good components so far: {{ forecast.total_good }}</p>
 <p>First day of testing: {{ forecast.first_day }}</p>
 <p>Total days since start (excluding weekends): {{ forecast.num_days }}</p>
-<p>Average good components per day: {{ forecast.avg_good_per_day }}</p>
+<p>Average good components per day: {{ forecast.avg_good_per_day | round(1) }}</p>
 <p>Remaining good components until goal: {{ forecast.remaining_good }}</p>
-<p>Expected testing days until goal: {{ forecast.expected_testing_days }}</p>
+<p>Expected testing days until goal: {{ forecast.expected_testing_days | round(1) }}</p>
 <p>Expected completion date: {{ forecast.predicted_completion_date }}</p>
 
 <h2>Status Composition</h2>
-
 <div class="chart-container">
-<canvas id="statusPieChart"></canvas>
+  <canvas id="statusPieChart"></canvas>
 </div>
 
 <h2>Failure Mode Breakdown</h2>
-
 <div class="chart-container">
-<canvas id="failurePieChart"></canvas>
+  <canvas id="failurePieChart"></canvas>
 </div>
 
 <h2>Testing History</h2>
-
 <div class="chart-container">
-<canvas id="historyChart"></canvas>
+  <canvas id="historyChart"></canvas>
 </div>
 
 <p>
@@ -106,9 +109,7 @@ View full test history
 </p>
 
 <h2>Recent Tests</h2>
-
 <table border="1" cellpadding="5" cellspacing="0">
-
 <thead>
 <tr>
 <th>Serial</th>
@@ -118,68 +119,20 @@ View full test history
 <th>Timestamp</th>
 </tr>
 </thead>
-
 <tbody>
-
 {% for row in recent_tests %}
-
 <tr>
-
 <td>{{ row.serial_number }}</td>
-
-<td class="tester-name"
-style="color: {{ tester_colors.get(row.tester,'black') }}">
-
-{{ row.tester }}
-
-</td>
-
+<td class="tester-name" style="color: {{ tester_colors.get(row.tester,'black') }}">{{ row.tester }}</td>
 <td>{{ row.status }}</td>
-
 <td>{{ row.failure_mode or '' }}</td>
-
 <td>{{ row.timestamp }}</td>
-
 </tr>
-
 {% endfor %}
-
 </tbody>
-
 </table>
 
 <script>
-
-/* -----------------------------------
-Progress bar coloring (same as index)
------------------------------------ */
-
-function progressColor(p){
-
-    p = Math.max(0, Math.min(100, p))
-
-    if(p >= 95){
-        return "#1a9850"
-    }
-
-    const MAX_HUE = 90
-    let hue = (p / 95) * MAX_HUE
-
-    return `hsl(${hue}, 75%, 45%)`
-}
-
-document.querySelectorAll(".progress-bar").forEach(bar => {
-
-    let p = parseFloat(bar.dataset.progress)
-    bar.style.backgroundColor = progressColor(p)
-
-})
-
-
-/* -----------------------------------
-Status pie chart
------------------------------------ */
-
 new Chart(
 document.getElementById('statusPieChart'),
 {
@@ -198,11 +151,6 @@ backgroundColor:['green','orange','red']
 }
 );
 
-
-/* -----------------------------------
-Failure mode chart
------------------------------------ */
-
 new Chart(
 document.getElementById('failurePieChart'),
 {
@@ -215,11 +163,6 @@ data: {{ failure_mode_counts.values() | list | tojson }}
 }
 }
 );
-
-
-/* -----------------------------------
-Testing history chart
------------------------------------ */
 
 new Chart(
 document.getElementById('historyChart'),
@@ -250,7 +193,6 @@ fill:false
 }
 }
 );
-
 </script>
 
 </body>

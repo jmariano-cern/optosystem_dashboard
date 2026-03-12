@@ -1,132 +1,83 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 <title>Component Testing Dashboard</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-
-body {
-    font-family: Arial, sans-serif;
-}
-
 .component-card {
     border: 1px solid #ccc;
-    padding: 12px;
-    margin: 10px;
+    padding: 10px;
+    margin-bottom: 20px;
     display: inline-block;
     vertical-align: top;
-    width: 320px;
+    width: 300px;
 }
 
 .progress-bar-container {
     width: 100%;
     background: #eee;
     border: 1px solid #999;
-    border-radius: 6px;
-    overflow: hidden;
+    border-radius: 5px;
+    position: relative;
+    height: 25px;
+    margin-bottom: 5px;
+    overflow: hidden;  /* ensure progress doesn't overflow */
 }
 
 .progress-bar {
-    height: 25px;
-    text-align: center;
-    color: black;
-    line-height: 25px;
-    font-weight: bold;
-    transition: width 0.8s ease;
+    height: 100%;
+    border-radius: 5px;
 }
 
+.progress-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: black;
+    pointer-events: none;  /* prevent interference if clicking the bar */
+}
 </style>
-
 </head>
-
 <body>
 
 <h1>Project Overview</h1>
 
 {% for comp, data in summary.items() %}
-
 <div class="component-card">
+  <h3 style="color: {{ components[comp]['color'] }}">{{ comp }}</h3>
 
-<h3 style="color: {{ components[comp]['color'] }}">
-{{ comp }}
-</h3>
+  <b>Total Good:</b> {{ data.good }} / {{ data.total }}<br>
+  <b>Yield:</b> {{ (data.yield_estimate*100)|round(2) }} %<br><br>
 
-<b>Total Tested:</b> {{ data.total }}<br>
-<b>Good:</b> {{ data.good }}<br>
-<b>Yield:</b> {{ (data.yield_estimate * 100) | round(2) }} %<br><br>
+  <!-- Progress bar -->
+  <div class="progress-bar-container">
+    <div class="progress-bar"
+         style="width: {{ data.progress | round(1) }}%; background-color: hsl({{ data.progress * 120 / 100 }}, 100%, 50%)">
+    </div>
+    <div class="progress-label">
+      {{ data.progress | round(1) }}% ({{ data.good }}/{{ data.goal }})
+    </div>
+  </div>
 
-<!-- Progress bar -->
+  <!-- Status composition pie chart -->
+  <canvas id="pie-{{ comp }}" width="250" height="250"></canvas>
 
-<div class="progress-bar-container">
-
-<div
-class="progress-bar"
-data-progress="{{ data.progress }}"
-style="width: {{ data.progress | round(1) }}%">
-
-{{ data.progress | round(1) }}%
-
+  <br>
+  <a href="/status/{{ comp }}">Go to {{ comp }} Status Page</a>
 </div>
-
-</div>
-
-<br>
-
-<!-- Status composition pie chart -->
-
-<canvas id="pie-{{ comp }}" width="250" height="250"></canvas>
-
-<br>
-
-<a href="/status/{{ comp }}">Go to {{ comp }} Status Page</a>
-
-</div>
-
 {% endfor %}
 
 <script>
-
-/* ------------------------------------------------
-Progress bar coloring
------------------------------------------------- */
-
-function progressColor(p) {
-
-    p = Math.max(0, Math.min(100, p))
-
-    // Turn fully green when essentially complete
-    if (p >= 95) {
-        return "#1a9850"
-    }
-
-    // Otherwise red -> yellow-green gradient
-    const MAX_HUE = 90
-    let hue = (p / 95) * MAX_HUE
-
-    return `hsl(${hue}, 75%, 45%)`
-}
-
-document.querySelectorAll(".progress-bar").forEach(bar => {
-
-    let p = parseFloat(bar.dataset.progress)
-
-    bar.style.backgroundColor = progressColor(p)
-
-})
-
-/* ------------------------------------------------
-Pie charts
------------------------------------------------- */
-
+// Draw the pie charts
 {% for comp, data in summary.items() %}
-
 new Chart(document.getElementById("pie-{{ comp }}"), {
-
-    type: "pie",
-
+    type: 'pie',
     data: {
         labels: ["Good","Bad","Under Investigation"],
         datasets: [{
@@ -134,19 +85,14 @@ new Chart(document.getElementById("pie-{{ comp }}"), {
             backgroundColor: ["green","red","orange"]
         }]
     }
-
 });
-
 {% endfor %}
-
 </script>
 
 <br>
-
-<a href="/submit">Enter Test Result</a> |
-<a href="/tester_dashboard">Tester Dashboard</a> |
+<a href="/submit">Enter Test Result</a>
+<a href="/tester_dashboard">Tester Dashboard</a>
 <a href="/calendar">Shift Calendar</a>
 
 </body>
-
 </html>
