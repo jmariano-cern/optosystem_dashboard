@@ -57,19 +57,30 @@ for i, comp in enumerate(components_cfg):
 
 testers = {}
 
-for i, t in enumerate(testers_cfg):
+for i, (name, cfg) in enumerate(testers_cfg.items()):
 
-    if isinstance(t, dict):
-        name = t["name"]
-        base_color = t.get("color") or default_colors[i % len(default_colors)]
-    else:
-        name = t
-        base_color = default_colors[i % len(default_colors)]
+    base_color = cfg.get("color") or default_colors[i % len(default_colors)]
 
     testers[name] = {
         "color": base_color,
         "light_color": lighten_color(base_color, 0.6)
     }
+
+# testers = {}
+
+# for i, t in enumerate(testers_cfg):
+
+#     if isinstance(t, dict):
+#         name = t["name"]
+#         base_color = t.get("color") or default_colors[i % len(default_colors)]
+#     else:
+#         name = t
+#         base_color = default_colors[i % len(default_colors)]
+
+#     testers[name] = {
+#         "color": base_color,
+#         "light_color": lighten_color(base_color, 0.6)
+#     }
 
 # -------------------------
 # CONTEXT PROCESSOR
