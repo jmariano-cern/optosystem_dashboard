@@ -1,3 +1,4 @@
+<!-- templates/daily_snapshot.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,70 +6,163 @@
 <title>Daily Snapshot - {{ today }}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-h2 { margin-top: 30px; }
-.shift-table, .component-table { border-collapse: collapse; margin-bottom: 20px; }
-.shift-table th, .shift-table td, .component-table th, .component-table td {
-    border: 1px solid #ccc; padding: 5px 10px; text-align: center;
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
 }
-.shift-locked { color: #aaa; } /* locked/ inactive shifts */
-.tester-name { font-weight: bold; }
-.chart-container { width: 300px; height: 300px; margin-bottom: 30px; }
+
+/* Table width fix */
+.shifts-table {
+    width: 700px;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+}
+
+.shifts-table th,
+.shifts-table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+}
+
+/* Visual separation between morning and afternoon */
+.shift-header {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+/* Locked/Inactive shifts */
+.shift-inactive {
+    color: #999;
+    background-color: #eee;
+}
+
+/* Open shifts: only status column */
+.status-open {
+    background-color: #ff4d4d; /* red background */
+    color: #111;               /* dark text */
+    font-weight: bold;
+}
+
+/* Component & tester colors */
+.component-name {
+    font-weight: bold;
+}
+.tester-name {
+    font-weight: bold;
+}
+.chart-container {
+    width: 400px;
+    height: 300px;
+    margin-bottom: 30px;
+}
 </style>
 </head>
 <body>
+<a href="/">Main Page</a> |
+<a href="/component_dashboard">Component Dashboard</a> |
+<a href="/tester_dashboard">Tester Dashboard</a> |
+<a href="/calendar">Shift Calendar</a> |
+<!-- <a href="/daily_snapshot">Daily Snapshot</a> | -->
+<a href="/submit">Enter Test</a>
 
 <h1>Daily Snapshot - {{ today }}</h1>
-<p><a href="{{ url_for('index') }}">← Main Page</a></p>
 
 <h2>Today's Shifts</h2>
-<table class="shift-table">
+<table class="shifts-table">
 <thead>
 <tr>
 <th>Shift</th>
 <th>Component</th>
 <th>Tester</th>
+<th>Status</th>
 </tr>
 </thead>
 <tbody>
-{% for shift_name, shift_list in shifts.items() %}
-    {% for s in shift_list %}
-    <tr class="{{ 'shift-locked' if not s.active }}">
-        <td>{{ shift_name.capitalize() }}</td>
-        <td>{{ s.component }}</td>
-        <td class="tester-name">{{ s.tester or 'Unassigned' }}</td>
-    </tr>
-    {% endfor %}
+{% for shift_time in ['morning','afternoon'] %}
+<tr class="shift-header"><td colspan="4">{{ shift_time|capitalize }}</td></tr>
+{% for shift in calendar[shift_time] %}
+    {% set comp_cfg = components[shift.component] %}
+    {% if not comp_cfg.active %}
+        {% set status_text = 'INACTIVE' %}
+        {% set row_class = 'shift-inactive' %}
+        {% set status_class = '' %}
+    {% elif not shift.tester %}
+        {% set status_text = 'OPEN' %}
+        {% set row_class = '' %}
+        {% set status_class = 'status-open' %}
+    {% else %}
+        {% set status_text = 'ASSIGNED' %}
+        {% set row_class = '' %}
+        {% set status_class = '' %}
+    {% endif %}
+<tr class="{{ row_class }}">
+    <td>{{ shift_time|capitalize }}</td>
+    <td class="component-name" style="color: {{ component_colors[shift.component] }}">{{ shift.component }}</td>
+    <td class="tester-name" style="color: {{ tester_colors.get(shift.tester,'black') }}">{{ shift.tester or '' }}</td>
+    <td class="{{ status_class }}">{{ status_text }}</td>
+</tr>
+{% endfor %}
 {% endfor %}
 </tbody>
 </table>
 
-<h2>Component Testing Today</h2>
-{% for comp, data in components_today.items() %}
-<div>
-<h3 style="color: {{ components[comp]['color'] }}">{{ comp }} - {{ data.total_today }} tests</h3>
-<div class="chart-container">
-  <canvas id="chart-{{ comp }}"></canvas>
-</div>
-</div>
+<!-- templates/daily_snapshot.html -->
+<h2>Components Tested Today</h2>
+{% for comp, stats in components_tested_today.items() %}
+    {% if components[comp].active %}
+        <h3 style="color: {{ component_colors[comp] }}">{{ comp }} ({{ stats.total }} tested today)</h3>
+        <div class="chart-container">
+            <canvas id="chart_{{ comp }}"></canvas>
+        </div>
+    {% endif %}
 {% endfor %}
 
 <script>
-{% for comp, data in components_today.items() %}
-new Chart(document.getElementById('chart-{{ comp }}'), {
-    type: 'pie',
-    data: {
-        labels: ['Good','Under Investigation','Bad'],
-        datasets: [{
-            data: [{{ data.status_counts['good'] }},
-                   {{ data.status_counts['under investigation'] }},
-                   {{ data.status_counts['bad'] }}],
-            backgroundColor: ['green','orange','red']
-        }]
-    }
-});
+{% for comp, stats in components_tested_today.items() %}
+    {% if components[comp].active %}
+new Chart(
+document.getElementById('chart_{{ comp }}'),
+{
+type: 'pie',
+data: {
+    labels: ['Good','Under Investigation','Bad'],
+    datasets: [{
+        data: [{{ stats.good }}, {{ stats.under }}, {{ stats.bad }}],
+        backgroundColor: ['green','orange','red']
+    }]
+}
+}
+);
+    {% endif %}
 {% endfor %}
 </script>
+
+<!-- <h2>Components Tested Today</h2> -->
+<!-- {% for comp, stats in components_tested_today.items() %} -->
+<!--     <h3 style="color: {{ component_colors[comp] }}">{{ comp }} ({{ stats.total }} tested today)</h3> -->
+<!--     <div class="chart-container"> -->
+<!--         <canvas id="chart_{{ comp }}"></canvas> -->
+<!--     </div> -->
+<!-- {% endfor %} -->
+
+<!-- <script> -->
+<!-- {% for comp, stats in components_tested_today.items() %} -->
+<!-- new Chart( -->
+<!-- document.getElementById('chart_{{ comp }}'), -->
+<!-- { -->
+<!-- type: 'pie', -->
+<!-- data: { -->
+<!--     labels: ['Good','Under Investigation','Bad'], -->
+<!--     datasets: [{ -->
+<!--         data: [{{ stats.good }}, {{ stats.under }}, {{ stats.bad }}], -->
+<!--         backgroundColor: ['green','orange','red'] -->
+<!--     }] -->
+<!-- } -->
+<!-- } -->
+<!-- ); -->
+<!-- {% endfor %} -->
+<!-- </script> -->
 
 </body>
 </html>

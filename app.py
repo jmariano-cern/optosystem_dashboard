@@ -524,44 +524,46 @@ def edit_shift(shift_id):
 def daily_snapshot():
     today = datetime.today().date()
 
-    # Fetch today's shifts
-    shift_rows = query_db(
+    # Prepare today's shifts
+    rows = query_db(
         "SELECT * FROM shifts WHERE date=? ORDER BY shift, component_type",
         (today.isoformat(),)
     )
 
-    shifts = {"morning": [], "afternoon": []}
-    for r in shift_rows:
-        shifts[r["shift"]].append({
+    calendar = {"morning": [], "afternoon": []}
+    for r in rows:
+        calendar[r["shift"]].append({
             "component": r["component_type"],
             "tester": r["tester"],
-            "id": r["id"],
-            "active": components[r["component_type"]]["active"]
+            "date": datetime.fromisoformat(r["date"]).date()
         })
 
-    # Fetch today's tests per component
-    components_today = {}
+    # Prepare today's component testing stats
+    components_tested_today = {}
     for comp in components:
-        tests_today = query_db(
+        rows_comp = query_db(
             "SELECT status FROM tests WHERE component_type=? AND DATE(timestamp)=?",
             (comp, today.isoformat())
         )
-        total_today = len(tests_today)
-        status_counts = {"good":0,"bad":0,"under investigation":0}
-        for t in tests_today:
-            status_counts[t["status"]] += 1
-        components_today[comp] = {
-            "total_today": total_today,
-            "status_counts": status_counts
+        total = len(rows_comp)
+        good = sum(1 for r in rows_comp if r["status"] == "good")
+        bad = sum(1 for r in rows_comp if r["status"] == "bad")
+        under = sum(1 for r in rows_comp if r["status"] == "under investigation")
+        components_tested_today[comp] = {
+            "total": total,
+            "good": good,
+            "bad": bad,
+            "under": under
         }
 
     return render_template(
         "daily_snapshot.html",
         today=today,
-        shifts=shifts,
-        components_today=components_today,
+        calendar=calendar,
         components=components,
-        tester_colors={t: testers[t]["color"] for t in testers}
+        component_colors={c: components[c]["color"] for c in components},
+        tester_colors={t: testers[t]["color"] for t in testers},
+        components_tested_today=components_tested_today
     )
 
 # -------------------------
