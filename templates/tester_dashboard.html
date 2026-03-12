@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <title>Tester Dashboard</title>
@@ -20,6 +21,12 @@ body{
     vertical-align:top;
 }
 
+.chart-wide{
+    width:700px;
+    height:400px;
+    margin-bottom:40px;
+}
+
 </style>
 
 </head>
@@ -35,37 +42,91 @@ body{
 
 <h1>Optosystem Tester Dashboard</h1>
 
+
+<!-- ================================================= -->
+<!-- Tests per tester stacked chart -->
+<!-- ================================================= -->
+
 <h2>Tests Per Tester (by Component)</h2>
 
-<div style="width:700px;height:400px;">
+<div class="chart-wide">
 <canvas id="testerStackedChart"></canvas>
 </div>
+
+
+<!-- ================================================= -->
+<!-- Shifts per tester stacked chart -->
+<!-- ================================================= -->
+
+<h2>Shifts Per Tester (by Component)</h2>
+
+<div class="chart-wide">
+<canvas id="testerShiftChart"></canvas>
+</div>
+
 
 <script>
 
 /* --------------------------------
-Stacked bar chart
+Load data from Flask
 -------------------------------- */
 
 let testerData = {{ tester_component_counts | tojson }};
+let shiftData = {{ tester_shift_counts | tojson }};
 let componentColors = {{ component_colors | tojson }};
 let testerColors = {{ tester_colors | tojson }};
 
-// Sort testers by total tests
+
+/* --------------------------------
+Sort testers consistently
+-------------------------------- */
+
 let entries = Object.entries(testerData).sort((a,b)=>{
+
     let sumA = Object.values(a[1]).reduce((x,y)=>x+y,0);
     let sumB = Object.values(b[1]).reduce((x,y)=>x+y,0);
+
     return sumB - sumA;
 });
 
 let testers = entries.map(e=>e[0]);
+
 let components = Object.keys(entries[0][1]);
 
-let datasets = components.map(comp => ({
+
+/* --------------------------------
+Dataset: tests
+-------------------------------- */
+
+let testDatasets = components.map(comp => ({
+
     label: comp,
-    data: entries.map(e=>e[1][comp]),
+
+    data: testers.map(t => testerData[t] ? testerData[t][comp] : 0),
+
     backgroundColor: componentColors[comp]['base']
+
 }));
+
+
+/* --------------------------------
+Dataset: shifts
+-------------------------------- */
+
+let shiftDatasets = components.map(comp => ({
+
+    label: comp,
+
+    data: testers.map(t => shiftData[t] ? shiftData[t][comp] : 0),
+
+    backgroundColor: componentColors[comp]['base']
+
+}));
+
+
+/* --------------------------------
+Chart 1: Tests
+-------------------------------- */
 
 new Chart(
 document.getElementById("testerStackedChart"),
@@ -73,17 +134,102 @@ document.getElementById("testerStackedChart"),
 type:"bar",
 data:{
 labels:testers,
-datasets:datasets
+datasets:testDatasets
 },
 options:{
 scales:{
-x:{stacked:true},
+x:{
+stacked:true,
+ticks:{
+color:function(context){
+let tester=testers[context.index];
+return testerColors[tester]||"#000";
+}
+}
+},
 y:{stacked:true,beginAtZero:true}
 }
 }
 });
 
+<!-- new Chart( -->
+
+<!-- document.getElementById("testerStackedChart"), -->
+
+<!-- { -->
+
+<!-- type:"bar", -->
+
+<!-- data:{ -->
+<!-- labels:testers, -->
+<!-- datasets:testDatasets -->
+<!-- }, -->
+
+<!-- options:{ -->
+<!-- scales:{ -->
+<!-- x:{stacked:true}, -->
+<!-- y:{stacked:true,beginAtZero:true} -->
+<!-- } -->
+<!-- } -->
+
+<!-- }); -->
+
+/* --------------------------------
+Chart 2: Shifts
+-------------------------------- */
+
+new Chart(
+document.getElementById("testerShiftChart"),
+{
+type:"bar",
+data:{
+labels:testers,
+datasets:shiftDatasets
+},
+options:{
+scales:{
+x:{
+stacked:true,
+ticks:{
+color:function(context){
+let tester=testers[context.index];
+return testerColors[tester]||"#000";
+}
+}
+},
+y:{stacked:true,beginAtZero:true}
+}
+}
+});
+
+<!-- new Chart( -->
+
+<!-- document.getElementById("testerShiftChart"), -->
+
+<!-- { -->
+
+<!-- type:"bar", -->
+
+<!-- data:{ -->
+<!-- labels:testers, -->
+<!-- datasets:shiftDatasets -->
+<!-- }, -->
+
+<!-- options:{ -->
+<!-- scales:{ -->
+<!-- x:{stacked:true}, -->
+<!-- y:{stacked:true,beginAtZero:true} -->
+<!-- } -->
+<!-- } -->
+
+<!-- }); -->
+
 </script>
+
+
+<!-- ================================================= -->
+<!-- Pie charts per component -->
+<!-- ================================================= -->
 
 <h2>Component breakdowns by tester</h2>
 
@@ -104,13 +250,18 @@ let data_{{loop.index}} = {{ tester_counts | tojson }};
 let labels_{{loop.index}} = Object.keys(data_{{loop.index}});
 let values_{{loop.index}} = Object.values(data_{{loop.index}});
 
-// Map tester names to their colors
-let colors_{{loop.index}} = labels_{{loop.index}}.map(t => testerColors[t] || "#888888");
+let colors_{{loop.index}} = labels_{{loop.index}}.map(
+    t => testerColors[t] || "#888888"
+);
 
 new Chart(
+
 document.getElementById("chart_{{loop.index}}"),
+
 {
+
 type:"pie",
+
 data:{
 labels:labels_{{loop.index}},
 datasets:[{
@@ -118,7 +269,9 @@ data:values_{{loop.index}},
 backgroundColor:colors_{{loop.index}}
 }]
 }
+
 }
+
 );
 
 </script>

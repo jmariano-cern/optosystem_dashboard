@@ -411,6 +411,10 @@ def tester_dashboard():
 
         tester_summary[comp] = counts
 
+    # ------------------------------------
+    # Tests per tester per component
+    # ------------------------------------
+
     rows = query_db("SELECT tester, component_type FROM tests")
 
     tester_component_counts = {}
@@ -425,10 +429,33 @@ def tester_dashboard():
 
         tester_component_counts[t][comp] += 1
 
+    # ------------------------------------
+    # NEW: Shifts per tester per component
+    # ------------------------------------
+
+    rows = query_db("""
+        SELECT tester, component_type
+        FROM shifts
+        WHERE tester IS NOT NULL
+    """)
+
+    tester_shift_counts = {}
+
+    for r in rows:
+
+        t = r["tester"]
+        comp = r["component_type"]
+
+        if t not in tester_shift_counts:
+            tester_shift_counts[t] = {c: 0 for c in components}
+
+        tester_shift_counts[t][comp] += 1
+
     return render_template(
         "tester_dashboard.html",
         tester_summary=tester_summary,
         tester_component_counts=tester_component_counts,
+        tester_shift_counts=tester_shift_counts,
         components=components
     )
 
