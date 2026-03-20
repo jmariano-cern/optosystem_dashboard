@@ -57,6 +57,7 @@ nohup ./run_server.sh [PORT] &
 ## Stop
 To stop the server run
 ```
-pkill -u ${USER} -e -f "waitress-serve --host 0.0.0.0 --port 5001"
+pkill -u ${USER} -e -f "waitress-serve --host 0.0.0.0 --port [PORT]"
 pkill -u ${USER} -e -f run_server.sh
 ```
+where `[PORT]` is the port that you specified in the 'Run' section, or 5000 if you did not specify a port.
