@@ -40,7 +40,7 @@
   "Powerboard": {
     "goal": 263,
     "color": "#9467bd",
-    "active": false,
+    "active": true,
     "failure_modes": [
       "Voltage instability",
       "Regulator failure",
@@ -60,7 +60,7 @@
   "Powercable": {
     "goal": 263,
     "color": "#e377c2",
-    "active": false,
+    "active": true,
     "failure_modes": [
       "Voltage instability",
       "Regulator failure",

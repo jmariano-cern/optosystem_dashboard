@@ -1,11 +1,13 @@
 {
-  "Joseph": { "color": "#4e79a7" },
-  "Stefano": { "color": "#f28e2b" },
-  "Silke": { "color": "#e15759" },
-  "Lucas": { "color": "#76b7b2" },
-  "Una": { "color": "#59a14f" },
-  "Rebekka": { "color": "#edc948" },
+  "Joseph":   { "color": "#4e79a7" },
+  "Stefano":  { "color": "#f28e2b" },
+  "Silke":    { "color": "#e15759" },
+  "Lucas":    { "color": "#76b7b2" },
+  "Una":      { "color": "#8cd17d" },
+  "Rebekka":  { "color": "#edc948" },
   "Marianna": { "color": "#b07aa1" },
-  "Greta": { "color": "#ff9da7" },
-  "Julian": { "color": "#9c755f" }
+  "Greta":    { "color": "#ff9da7" },
+  "Julian":   { "color": "#9c755f" },
+  "Iker":     { "color": "#bab0ac" },
+  "Lennart":  { "color": "#347a39" }
 }
