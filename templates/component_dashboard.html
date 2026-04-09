@@ -58,9 +58,7 @@
 <div class="component-card">
   <h3 style="color: {{ components[comp]['color'] }}">{{ comp }}</h3>
 
-  <b>Total Good:</b> {{ data.good }} / {{ data.total }}<br>
-  <b>Yield:</b> {{ (data.yield_estimate*100)|round(2) }} %<br><br>
-
+  <center><b>Progress towards goal</b></center>
   <!-- Progress bar -->
   <div class="progress-bar-container">
     <div class="progress-bar"
@@ -71,10 +69,15 @@
     </div>
   </div>
 
+  <br>
+  <center><b>Component breakdown</b></center>
   <!-- Status composition pie chart -->
   <canvas id="pie-{{ comp }}" width="250" height="250"></canvas>
 
   <br>
+  <center><b>Good components:</b> {{ data.good }} / {{ data.total }}</center>
+  <center><b>Yield:</b> {{ (data.yield_estimate*100)|round(2) }} %</center><br>
+
   <a href="/status/{{ comp }}">Go to {{ comp }} Status Page</a>
 </div>
 {% endfor %}

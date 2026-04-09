@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Shift Dashboard</title>
+
+<!--
+    Chart.js core + the error-bar plugin (must load in this order).
+    chartjs-chart-error-bars adds the 'barWithErrorBars' type which
+    accepts { y, yMin, yMax } per data point.
+-->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-error-bars@4"></script>
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+h1 { margin-bottom: 4px; }
+
+p.subtitle {
+    color: #555;
+    margin-top: 0;
+    margin-bottom: 32px;
+    font-size: 0.95em;
+}
+
+.charts-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 40px;
+}
+
+.chart-card {
+    width: 480px;
+}
+
+.chart-card h2 {
+    margin-bottom: 2px;
+    font-size: 1.1em;
+}
+
+.chart-card canvas {
+    width: 100% !important;
+}
+
+.no-data {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- ── Navigation ─────────────────────────────────────────────── -->
+
+<a href="/">Main Page</a> |
+<a href="/component_dashboard">Component Dashboard</a> |
+<a href="/tester_dashboard">Tester Dashboard</a> |
+<a href="/calendar">Shift Calendar</a> |
+<a href="/daily_snapshot">Daily Snapshot</a> |
+<a href="/submit">Enter Test</a>
+
+<!-- ── Title ──────────────────────────────────────────────────── -->
+
+<h1>Optosystem Shift Dashboard</h1>
+<p class="subtitle">
+    Average components tested per shift, per tester &mdash;
+    error bars show &plusmn;1 sample standard deviation
+    (only shifts and tests before today are counted).
+</p>
+
+<!-- ── One chart per component ───────────────────────────────── -->
+
+<div class="charts-grid">
+
+{% for comp, tester_stats in throughput.items() %}
+
+    {% if tester_stats %}
+
+    <div class="chart-card">
+
+        <h2 style="color: {{ component_colors[comp]['base'] }}">
+            {{ comp }}
+        </h2>
+
+        <canvas id="chart_{{ loop.index }}"></canvas>
+
+        <script>
+        (function () {
+
+            /* ---- data from Flask ---- */
+            var raw     = {{ tester_stats | tojson }};
+            var tColors = {{ tester_colors | tojson }};
+
+            /* ---- sort by mean descending ---- */
+            var entries = Object.entries(raw);
+            // var entries = Object.entries(raw).sort(
+            //     function (a, b) { return b[1].mean - a[1].mean; }
+            // );
+
+            var labels   = entries.map(function (e) { return e[0]; });
+            var stats    = entries.map(function (e) { return e[1]; });
+
+            /*
+                chartjs-chart-error-bars expects each data point as:
+                    { y: mean, yMin: mean - sd, yMax: mean + sd }
+                When sd is null (only 1 shift) we pass a plain number
+                so no whisker is drawn.
+            */
+            var dataPoints = stats.map(function (s) {
+                if (s.sd !== null) {
+                    return {
+                        y:    s.mean,
+                        yMin: Math.max(0, s.mean - s.sd),
+                        yMax: s.mean + s.sd
+                    };
+                }
+                return s.mean;   /* scalar — no error bar */
+            });
+
+            var bgColors = labels.map(function (t) {
+                return tColors[t] || "#888888";
+            });
+
+            /* ---- tooltip: show mean ± sd  and  n ---- */
+            var tooltipLabel = function (ctx) {
+                var s = stats[ctx.dataIndex];
+                var line = " " + s.mean.toFixed(2) + " tests/shift";
+                if (s.sd !== null) {
+                    line += "  ±" + s.sd.toFixed(2);
+                }
+                line += "  (n=" + s.n + ")";
+                return line;
+            };
+
+            new Chart(
+                document.getElementById("chart_{{ loop.index }}"),
+                {
+                    type: "barWithErrorBars",
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: "avg tests / shift",
+                            data:  dataPoints,
+                            backgroundColor: bgColors,
+                            borderRadius: 3,
+                            /* error-bar styling */
+                            errorBarColor:       "#333",
+                            errorBarWhiskerSize: 8,
+                            errorBarLineWidth:   1.5
+                        }]
+                    },
+                    options: {
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: { label: tooltipLabel }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: function (ctx) {
+                                        var t = labels[ctx.index];
+                                        return tColors[t] || "#000";
+                                    },
+                                    font: { weight: "bold" }
+                                },
+                                grid: { display: false }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: "avg tests / shift"
+                                }
+                            }
+                        }
+                    }
+                }
+            );
+
+        })();
+        </script>
+
+    </div>
+
+    {% else %}
+
+    <div class="chart-card">
+        <h2 style="color: {{ component_colors[comp]['base'] }}">{{ comp }}</h2>
+        <p class="no-data">No completed shifts recorded yet.</p>
+    </div>
+
+    {% endif %}
+
+{% endfor %}
+
+</div><!-- .charts-grid -->
+
+</body>
+</html>

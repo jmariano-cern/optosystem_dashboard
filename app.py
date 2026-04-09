@@ -3,6 +3,7 @@ import sqlite3
 from flask import Flask, render_template, request, redirect, url_for, g
 from datetime import datetime, timedelta, date
 import matplotlib.colors as mcolors
+from math import sqrt
 
 app = Flask(__name__)
 
@@ -612,6 +613,191 @@ def daily_snapshot():
         tester_colors={t: testers[t]["color"] for t in testers},
         components_tested_today=components_tested_today
     )
+
+# -------------------------
+# SHIFT DASHBOARD
+# -------------------------
+
+@app.route("/shift_dashboard")
+def shift_dashboard():
+    """
+    For every (component, tester) pair build a vector whose i-th element is
+    the number of components tested during that tester's i-th completed shift
+    for that component type.
+
+    A test is attributed to a shift by matching:
+        - component_type
+        - tester
+        - DATE(timestamp)  ==  shift date
+        - morning shift  : TIME(timestamp) <  '12:45'
+        - afternoon shift: TIME(timestamp) >= '12:45'
+
+    From the vector we compute the sample mean and (when n >= 2) the sample
+    standard deviation, both of which are passed to the template for
+    Chart.js error-bar rendering.
+
+    Only shifts with date < today are included so that an in-progress shift
+    does not appear as a zero in the vector.
+    """
+
+    today = date.today().isoformat()
+
+    # ------------------------------------------------------------------
+    # 1.  Fetch every completed, assigned shift before today.
+    #     One row per (date, shift, component_type, tester).
+    # ------------------------------------------------------------------
+    shift_rows = query_db("""
+        SELECT date, shift, component_type, tester
+        FROM   shifts
+        WHERE  tester IS NOT NULL
+        AND    date   <  ?
+        ORDER  BY tester, component_type, date, shift
+    """, (today,))
+
+    # ------------------------------------------------------------------
+    # 2.  Fetch every test before today, keeping only the fields we need
+    #     to match against shifts.
+    #     We aggregate into a lookup keyed by (tester, comp, date, slot):
+    #         test_lookup[(tester, comp, date_str, 'morning'|'afternoon')]
+    #             = count of tests in that slot
+    # ------------------------------------------------------------------
+    test_rows = query_db("""
+        SELECT
+            tester,
+            component_type,
+            DATE(timestamp)                                   AS test_date,
+            CASE WHEN TIME(timestamp) < '12:45' THEN 'morning'
+                 ELSE 'afternoon' END                         AS slot,
+            COUNT(*)                                          AS cnt
+        FROM   tests
+        WHERE  DATE(timestamp) < ?
+        GROUP  BY tester, component_type, test_date, slot
+    """, (today,))
+
+    # Build the lookup dict
+    test_lookup = {}
+    for r in test_rows:
+        key = (r["tester"], r["component_type"], r["test_date"], r["slot"])
+        test_lookup[key] = r["cnt"]
+
+    # ------------------------------------------------------------------
+    # 3.  For each (comp, tester) pair accumulate the per-shift vector.
+    #     Each shift contributes exactly one element (0 if no tests logged).
+    # ------------------------------------------------------------------
+
+    # vectors[comp][tester] = [int, int, ...]
+    vectors = {comp: {} for comp in components}
+
+    for r in shift_rows:
+        comp   = r["component_type"]
+        tester = r["tester"]
+        key    = (tester, comp, r["date"], r["shift"])
+
+        count = test_lookup.get(key, 0)
+
+        vectors[comp].setdefault(tester, []).append(count)
+
+    # ------------------------------------------------------------------
+    # 4.  Compute sample mean and sample stdev from each vector.
+    #     throughput[comp][tester] = {"mean": float, "sd": float|None, "n": int}
+    # ------------------------------------------------------------------
+    throughput = {}
+
+    for comp in components:
+        throughput[comp] = {}
+
+        for tester, vec in vectors[comp].items():
+            n    = len(vec)
+            mean = sum(vec) / n
+
+            if n >= 2:
+                variance = sum((x - mean) ** 2 for x in vec) / (n - 1)
+                sd = sqrt(variance)
+            else:
+                sd = None   # sample stdev undefined for a single observation
+
+            throughput[comp][tester] = {
+                "mean": round(mean, 3),
+                #"sd":   round(sd, 3) if sd is not None else None,
+                "sd":   round(sd, 3) if sd is not None else 0,
+                "n":    n
+            }
+
+    return render_template(
+        "shift_dashboard.html",
+        throughput=throughput,
+        components=components,
+    )
+
+# # -------------------------
+# # THROUGHPUT DASHBOARD
+# # -------------------------
+
+# @app.route("/throughput_dashboard")
+# def throughput_dashboard():
+#     """
+#     For every (component, tester) pair, compute:
+#         avg_per_shift = tests_before_today / shifts_before_today
+
+#     Only shifts and tests strictly BEFORE today are counted so that
+#     an ongoing shift does not inflate the denominator.
+#     """
+
+#     today = date.today().isoformat()
+
+#     # ------------------------------------------------------------------
+#     # 1.  Shifts per tester per component  (date < today)
+#     # ------------------------------------------------------------------
+#     shift_rows = query_db("""
+#         SELECT tester, component_type, COUNT(*) AS cnt
+#         FROM   shifts
+#         WHERE  tester IS NOT NULL
+#         AND    date   <  ?
+#         GROUP  BY tester, component_type
+#     """, (today,))
+
+#     # shift_counts[tester][comp] = number of completed shifts
+#     shift_counts = {}
+#     for r in shift_rows:
+#         shift_counts.setdefault(r["tester"], {})[r["component_type"]] = r["cnt"]
+
+#     # ------------------------------------------------------------------
+#     # 2.  Tests per tester per component  (timestamp date < today)
+#     # ------------------------------------------------------------------
+#     test_rows = query_db("""
+#         SELECT tester, component_type, COUNT(*) AS cnt
+#         FROM   tests
+#         WHERE  DATE(timestamp) < ?
+#         GROUP  BY tester, component_type
+#     """, (today,))
+
+#     # test_counts[tester][comp] = number of completed tests
+#     test_counts = {}
+#     for r in test_rows:
+#         test_counts.setdefault(r["tester"], {})[r["component_type"]] = r["cnt"]
+
+#     # ------------------------------------------------------------------
+#     # 3.  Build per-component data for the charts
+#     #     throughput[comp][tester] = avg tests/shift  (None if 0 shifts)
+#     # ------------------------------------------------------------------
+#     throughput = {}
+
+#     for comp in components:
+#         throughput[comp] = {}
+
+#         for tester in testers:
+#             shifts_done = shift_counts.get(tester, {}).get(comp, 0)
+#             tests_done  = test_counts.get(tester, {}).get(comp, 0)
+
+#             if shifts_done > 0:
+#                 throughput[comp][tester] = round(tests_done / shifts_done, 2)
+#             # testers with 0 shifts are omitted from their component chart
+
+#     return render_template(
+#         "throughput_dashboard.html",
+#         throughput=throughput,
+#         components=components,
+#     )
 
 # -------------------------
 # RUN SERVER
