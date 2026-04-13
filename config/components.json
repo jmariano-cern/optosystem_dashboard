@@ -1,80 +1,167 @@
 {
-  "BPOL2v5": {
-    "goal": 1878,
-    "color": "#1f77b4",
-    "active": true,
-    "failure_modes": [
-      "No optical signal",
-      "Laser failure",
-      "Clock failure"
-    ]
-  },
-  "Optoboard": {
-    "goal": 1878,
-    "color": "#ff7f0e",
-    "active": true,
-    "failure_modes": [
-      "No optical signal",
-      "Laser failure",
-      "Clock failure"
-    ]
-  },
-  "Optobox": {
-    "goal": 244,
-    "color": "#2ca02c",
-    "active": true,
-    "failure_modes": [
-      "Connector failure",
-      "Mechanical damage"
-    ]
-  },
-  "Connectorboard": {
-    "goal": 263,
-    "color": "#d62728",
-    "active": true,
-    "failure_modes": [
-      "Short circuit",
-      "Broken trace"
-    ]
-  },
-  "Powerboard": {
-    "goal": 263,
-    "color": "#9467bd",
-    "active": true,
-    "failure_modes": [
-      "Voltage instability",
-      "Regulator failure",
-      "Overheating"
-    ]
-  },
-  "MOPS": {
-    "goal": 263,
-    "color": "#8c564b",
-    "active": true,
-    "failure_modes": [
-      "Voltage instability",
-      "Regulator failure",
-      "Overheating"
-    ]
-  },
-  "Powercable": {
-    "goal": 263,
-    "color": "#e377c2",
-    "active": true,
-    "failure_modes": [
-      "Voltage instability",
-      "Regulator failure",
-      "Overheating"
-    ]
-  },
-  "CANcable": {
-    "goal": 263,
-    "color": "#17becf",
-    "active": true,
-    "failure_modes": [
-      "Voltage instability",
-      "Regulator failure",
-      "Overheating"
-    ]
-  }
+    "BPOL2v5": {
+	"goal": 1878,
+	"color": "#1f77b4",
+	"active": true,
+	"failure_modes": [
+	    "No optical signal",
+	    "Laser failure",
+	    "Clock failure"
+	],
+	"db_name" : "BPOL2V5",
+	"db_project" : "CE",
+	"required_tests" : [
+	    "LOAD_LINE_TEST"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    },
+    "Optoboard": {
+	"goal": 1878,
+	"color": "#ff7f0e",
+	"active": true,
+	"failure_modes": [
+	    "No optical signal",
+	    "Laser failure",
+	    "Clock failure"
+	],
+	"db_name" : "OPTOBOARD",
+	"db_project" : "P",
+	"required_tests" : [
+	    "CONFIGURATION_TEST",
+	    "DOWNLINK_TEST",
+	    "EYE_DIAGRAM",
+	    "LPGBT_INPUT",
+	    "OPTICAL_ALIGNMENT_TEST",
+	    "OPTOBOARD_VISUAL_INSPECTION",
+	    "POWER_ON_TEST",
+	    "SOFTERROR_TEST"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    },
+    "Optobox": {
+	"goal": 244,
+	"color": "#2ca02c",
+	"active": true,
+	"failure_modes": [
+	    "Connector failure",
+	    "Mechanical damage"
+	],
+	"db_name" : "OPTOBOX",
+	"db_project" : "P",
+	"required_tests" : [
+	    "CONFIGURATION",
+	    "CONNECTORBOARD_CONFIGURATION",
+	    "CURRENT",
+	    "MOPS",
+	    "REPEATED_PRIMARY_UPLINK_ALIGNMENT",
+	    "UPLINK_ALIGNMENT",
+	    "UPLINK_OPTICAL_POWER",
+	    "VISUAL_INSPECTION"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    },
+    "Connectorboard": {
+	"goal": 263,
+	"color": "#d62728",
+	"active": true,
+	"failure_modes": [
+	    "Short circuit",
+	    "Broken trace"
+	],
+	"db_name" : "OPTOBOX_CONNECTORBOARD",
+	"db_project" : "P",
+	"required_tests" : [
+	    "CHANNEL_VOLTAGE_TESTS",
+	    "NTC_INTERLOCK_TEST",
+	    "VISUAL_INSPECTION"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    },
+    "Powerboard": {
+	"goal": 263,
+	"color": "#9467bd",
+	"active": true,
+	"failure_modes": [
+	    "Voltage instability",
+	    "Regulator failure",
+	    "Overheating"
+	],
+	"db_name" : "OPTOBOX_POWERBOARD",
+	"db_project" : "P",
+	"required_tests" : [
+	    "MOPS_READOUT",
+	    "NTC_INTERLOCK_TEST",
+	    "NTC_INTERLOCK_TEST_ROUTE_TO_CONNECTORBOARD",
+	    "OB_PB_VISUAL_INSPECTION"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    },
+    "BPOL12V": {
+	"goal": 263,
+	"color": "#8c564b",
+	"active": true,
+	"failure_modes": [
+	    "Voltage instability",
+	    "Regulator failure",
+	    "Overheating"
+	],
+	"db_name" : "BPOL12V",
+	"db_project" : "CE",
+	"required_tests" : [
+	    "LOAD_LINE_TEST",
+	    "TEST_SHIELD_ON"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    },
+    "Powercable": {
+	"goal": 263,
+	"color": "#e377c2",
+	"active": true,
+	"failure_modes": [
+	    "Voltage instability",
+	    "Regulator failure",
+	    "Overheating"
+	],
+	"db_name" : "OPTOBOX_POWER_CABLE",
+	"db_project" : "P",
+	"required_tests" : [
+	    "CONNECTIVITY",
+	    "VISUAL_INSPECTION"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    },
+    "CANcable": {
+	"goal": 263,
+	"color": "#17becf",
+	"active": true,
+	"failure_modes": [
+	    "Voltage instability",
+	    "Regulator failure",
+	    "Overheating"
+	],
+	"db_name" : "OPTOBOX_CAN_BUS_CABLE",
+	"db_project" : "P",
+	"required_tests" : [
+	    "CAN_BUS_CABLE_VISUAL_INSPECTION",
+	    "CONNECTIVITY",
+	    "DATA_TRANSMISSION"
+	],
+	"multiple_tests_behavior" : "latest",
+	"missing_test_behavior" : "skip",
+	"missing_all_tests_behavior" : "skip"
+    }
 }
