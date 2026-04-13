@@ -5,3 +5,4 @@ database.db
 __pycache__
 nohup.out
 .webcache
+log/
