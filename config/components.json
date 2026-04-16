@@ -2,6 +2,7 @@
     "BPOL2v5": {
 	"goal": 1878,
 	"color": "#1f77b4",
+	"enabled": true,
 	"active": true,
 	"failure_modes": [
 	    "No optical signal",
@@ -20,6 +21,7 @@
     "Optoboard": {
 	"goal": 1878,
 	"color": "#ff7f0e",
+	"enabled": false,
 	"active": true,
 	"failure_modes": [
 	    "No optical signal",
@@ -45,6 +47,7 @@
     "Optobox": {
 	"goal": 244,
 	"color": "#2ca02c",
+	"enabled": false,
 	"active": true,
 	"failure_modes": [
 	    "Connector failure",
@@ -69,6 +72,7 @@
     "Connectorboard": {
 	"goal": 263,
 	"color": "#d62728",
+	"enabled": false,
 	"active": true,
 	"failure_modes": [
 	    "Short circuit",
@@ -88,6 +92,7 @@
     "Powerboard": {
 	"goal": 263,
 	"color": "#9467bd",
+	"enabled": false,
 	"active": true,
 	"failure_modes": [
 	    "Voltage instability",
@@ -109,6 +114,7 @@
     "BPOL12V": {
 	"goal": 263,
 	"color": "#8c564b",
+	"enabled": false,
 	"active": true,
 	"failure_modes": [
 	    "Voltage instability",
@@ -128,6 +134,7 @@
     "Powercable": {
 	"goal": 263,
 	"color": "#e377c2",
+	"enabled": false,
 	"active": true,
 	"failure_modes": [
 	    "Voltage instability",
@@ -147,6 +154,7 @@
     "CANcable": {
 	"goal": 263,
 	"color": "#17becf",
+	"enabled": false,
 	"active": true,
 	"failure_modes": [
 	    "Voltage instability",

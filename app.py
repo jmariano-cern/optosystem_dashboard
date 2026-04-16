@@ -15,7 +15,8 @@ database = "database.db"
 
 with open("config/components.json") as f:
     components_cfg = json.load(f)
-
+components_cfg = {key: value for key, value in components_cfg.items() if value["enabled"]}
+    
 with open("config/testers.json") as f:
     testers_cfg = json.load(f)
 
