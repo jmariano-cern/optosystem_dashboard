@@ -27,11 +27,14 @@ def get_tests(client, componentType, project):
 def clean_component_list(componentList):
     return [component for component in componentList if component["state"] != "deleted"]
 
-def get_component_tests(client, serial_number):    
+def get_component_data(client, serial_number):    
     response = client.get("getComponent", json = {
         "component": serial_number
     })
     test_data = {}
+    production_component = False if "PRODUCTION_COMPONENT" not in response else response["PRODUCTION_COMPONENT"]
+    if not production_component:
+        return (test_data, production_component)        
     for test_type in response["tests"]:
         test_data[test_type["code"]] = []
         for test_run in test_type["testRuns"]:
@@ -39,7 +42,7 @@ def get_component_tests(client, serial_number):
             test_data[test_type["code"]][-1]["date"] = test_run["date"]
             test_data[test_type["code"]][-1]["passed"] = test_run["passed"]
         test_data[test_type["code"]] = sorted(test_data[test_type["code"]], reverse=False, key=lambda x: datetime.strptime(x["date"], '%Y-%m-%dT%H:%M:%S.%fZ'))
-    return test_data
+    return (test_data, production_component)
     
 def get_test_summary(component_tests,test_list,multiple_tests_behavior="latest"):
     summary = {}
@@ -136,11 +139,14 @@ if __name__ == "__main__":
         component_list = clean_component_list(component_list)
         test_list = get_tests(client, component_type_data["db_name"], component_type_data["db_project"])
         for component in component_list:            
-            print("    "+component["serialNumber"])
             logfile.write("######################################\n")
             logfile.write("  "+component["serialNumber"]+"\n")
             logfile.write("######################################\n")
-            component_tests = get_component_tests(client, component["serialNumber"])
+            (component_tests,production_component) = get_component_data(client, component["serialNumber"])
+            if not production_component:
+                logfile.write("  Not production component -- skipping\n")
+                continue
+            print("    "+component["serialNumber"])
             logfile.write(json.dumps(component_tests,indent=1))
             test_summary = get_test_summary(component_tests, test_list, components[component_type_name]["multiple_tests_behavior"])
             logfile.write(json.dumps(test_summary,indent=1))
