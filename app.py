@@ -507,6 +507,8 @@ def calendar_page():
         calendar[d] = {"morning": [], "afternoon": []}
 
     for r in rows:
+        if not r["component_type"] in components_cfg:
+            continue
         d = datetime.fromisoformat(r["date"]).date()
         calendar[d][r["shift"]].append({
             "component": r["component_type"],
@@ -581,12 +583,14 @@ def daily_snapshot():
 
     calendar = {"morning": [], "afternoon": []}
     for r in rows:
+        if not r["component_type"] in components_cfg:
+            continue
         calendar[r["shift"]].append({
             "component": r["component_type"],
             "tester": r["tester"],
             "date": datetime.fromisoformat(r["date"]).date()
         })
-
+        
     # Prepare today's component testing stats
     components_tested_today = {}
     for comp in components:
@@ -604,7 +608,7 @@ def daily_snapshot():
             "bad": bad,
             "under": under
         }
-
+    
     return render_template(
         "daily_snapshot.html",
         today=today,
