@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, g
 from datetime import datetime, timedelta, date
 import matplotlib.colors as mcolors
 from math import sqrt
+from collections import defaultdict
 
 app = Flask(__name__)
 
@@ -315,6 +316,58 @@ def status(component):
 
     recent_tests = [dict(r) for r in rows[-20:][::-1]]
 
+    # Aggregate counts per day
+    daily = defaultdict(lambda: {"good": 0, "bad": 0, "under": 0})
+    for r in rows:
+        day = datetime.fromisoformat(r["timestamp"]).date().isoformat()
+        if r["status"] == "good":
+            daily[day]["good"] += 1
+        elif r["status"] == "bad":
+            daily[day]["bad"] += 1
+        elif r["status"] == "under investigation":
+            daily[day]["under"] += 1
+
+    # Build a complete date range from first test to today
+    if rows:
+        start = datetime.fromisoformat(rows[0]["timestamp"]).date()
+    else:
+        start = date.today()
+    end = date.today()
+
+    all_dates = []
+    d = start
+    while d <= end:
+        all_dates.append(d.isoformat())
+        d += timedelta(days=1)
+
+    # AI named these variables...
+    cum_good, cum_bad, cum_under = 0, 0, 0
+    history_dates, history_good, history_bad, history_under = [], [], [], []
+    for day in all_dates:
+        if day in daily:
+            cum_good  += daily[day]["good"]
+            cum_bad   += daily[day]["bad"]
+            cum_under += daily[day]["under"]
+        history_dates.append(day)
+        history_good.append(cum_good)
+        history_bad.append(cum_bad)
+        history_under.append(cum_under)
+        
+    # return render_template(
+    #     "status.html",
+    #     component=component,
+    #     goal=goal,
+    #     progress=progress,
+    #     status_counts=status_counts,
+    #     failure_mode_counts=failure_counts,
+    #     history_dates=[datetime.fromisoformat(r["timestamp"]).date().isoformat() for r in rows],
+    #     history_good=[sum(1 for x in rows[:i+1] if x["status"]=="good") for i in range(len(rows))],
+    #     history_bad=[sum(1 for x in rows[:i+1] if x["status"]=="bad") for i in range(len(rows))],
+    #     history_under=[sum(1 for x in rows[:i+1] if x["status"]=="under investigation") for i in range(len(rows))],
+    #     recent_tests=recent_tests,
+    #     forecast=forecast
+    # )
+
     return render_template(
         "status.html",
         component=component,
@@ -322,10 +375,10 @@ def status(component):
         progress=progress,
         status_counts=status_counts,
         failure_mode_counts=failure_counts,
-        history_dates=[datetime.fromisoformat(r["timestamp"]).date().isoformat() for r in rows],
-        history_good=[sum(1 for x in rows[:i+1] if x["status"]=="good") for i in range(len(rows))],
-        history_bad=[sum(1 for x in rows[:i+1] if x["status"]=="bad") for i in range(len(rows))],
-        history_under=[sum(1 for x in rows[:i+1] if x["status"]=="under investigation") for i in range(len(rows))],
+        history_dates=history_dates,
+        history_good=history_good,
+        history_bad=history_bad,
+        history_under=history_under,
         recent_tests=recent_tests,
         forecast=forecast
     )

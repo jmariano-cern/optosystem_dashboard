@@ -5,6 +5,7 @@
 <title>{{ component }} Status</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
 <style>
 body {
@@ -167,7 +168,7 @@ data: {{ failure_mode_counts.values() | list | tojson }}
 );
 
 new Chart(
-document.getElementById('historyChart'),
+document.getElementById('historyChart_bugged'),
 {
 type:'line',
 data:{
@@ -194,6 +195,56 @@ fill:false
 ]
 }
 }
+);
+
+new Chart(
+  document.getElementById('historyChart'),
+  {
+    type: 'line',
+    data: {
+      labels: {{ history_dates | tojson }},
+      datasets: [
+        {
+          label: 'Good',
+          data: {{ history_good | tojson }},
+          borderColor: 'green',
+          fill: false,
+          pointRadius: 3
+        },
+        {
+          label: 'Bad',
+          data: {{ history_bad | tojson }},
+          borderColor: 'red',
+          fill: false,
+          pointRadius: 3
+        },
+        {
+          label: 'Under Investigation',
+          data: {{ history_under | tojson }},
+          borderColor: 'orange',
+          fill: false,
+          pointRadius: 3
+        }
+      ]
+    },
+    options: {
+      scales: {
+        x: {
+          type: 'time',           // <-- key change
+          time: {
+            unit: 'day',
+            tooltipFormat: 'MMM d, yyyy',
+            displayFormats: { day: 'MMM d' }
+          },
+          title: { display: true, text: 'Date' }
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Cumulative Count' }
+        }
+      }
+    }
+  }
 );
 </script>
 
