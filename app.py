@@ -41,7 +41,7 @@ default_colors = [
 
 # Prepare components
 components = {}
-failure_modes_cfg = {} # dumb hack
+#failure_modes_cfg = {} # dumb hack
 for i, comp in enumerate(components_cfg):
     cfg = components_cfg[comp]
     base_color = cfg.get("color") or default_colors[i % len(default_colors)]
@@ -52,7 +52,7 @@ for i, comp in enumerate(components_cfg):
         "failure_modes": cfg.get("failure_modes", []),
         "active": cfg.get("active", True)
     }
-    failure_modes_cfg[comp] = cfg.get("failure_modes", [])
+#    failure_modes_cfg[comp] = cfg.get("failure_modes", [])
 
 # -------------------------
 # PREPARE TESTER DATA
@@ -140,6 +140,19 @@ def close_db(exception):
     db = g.pop("db", None)
     if db:
         db.close()
+
+# -------------------------
+# LOAD FAILURE MODES DYNAMICALLY
+# -------------------------
+failure_modes_cfg = {}
+with app.app_context():
+    for comp in components_cfg:
+        print(comp)
+        rows = query_db(
+            "SELECT DISTINCT failure_mode FROM tests WHERE component_type=? AND failure_mode IS NOT NULL AND failure_mode != ''",
+            (comp,)
+        )
+    failure_modes_cfg[comp] = [r["failure_mode"] for r in rows]
 
 # -------------------------
 # HOME PAGE
