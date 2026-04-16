@@ -32,7 +32,11 @@ def get_component_data(client, serial_number):
         "component": serial_number
     })
     test_data = {}
-    production_component = False if "PRODUCTION_COMPONENT" not in response else response["PRODUCTION_COMPONENT"]
+    production_component =  False
+    for property in response["properties"]:
+        if property["code"] == "PRODUCTION_COMPONENT":
+            if property["value"]:
+                production_component = True
     if not production_component:
         return (test_data, production_component)        
     for test_type in response["tests"]:
