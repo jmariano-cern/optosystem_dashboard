@@ -3,7 +3,7 @@
 	"goal": 1878,
 	"color": "#1f77b4",
 	"enabled": true,
-	"active": true,
+	"active": false,
 	"failure_modes": [
 	    "No optical signal",
 	    "Laser failure",
@@ -21,7 +21,7 @@
     "Optoboard": {
 	"goal": 1878,
 	"color": "#ff7f0e",
-	"enabled": false,
+	"enabled": true,
 	"active": true,
 	"failure_modes": [
 	    "No optical signal",
