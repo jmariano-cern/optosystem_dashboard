@@ -2,6 +2,22 @@
 
 A dashboard for organizing and tracking optosystem production testing based on a SQLite backend.
 
+## Quick start
+
+1. ***Make sure that the firewall is open***. Run `sudo firewall-cmd --list-all`. Under `ports` you should see `[PORT]/tcp` where `[PORT]` is the port number on which you would like to serve the dashboard. If you do not see the port, open it by running `./open_firewall.sh [PORT]`.
+
+2. ***Make sure that the database is set to auto-update***. Run `sudo crontab -l`. You should see a line like
+```
+*/30 * * * * /usr/bin/python3 /home/lhep/Current_users/joseph/optosystem_dashboard/read_db.py
+```
+If you don't see something like this, run './cron_add_read_db.sh'.
+
+3. ***Start the server***. To check whether the server is already running, run `ps aux | grep waitress`. If you see a line like
+```
+iconda3/bin/python /home/lhep/miniconda3/bin/waitress-serve --host 0.0.0.0 --port 5001 app:app
+```
+this means that the server is already running. Verify that the port here (5001 in this example) is the one you intend. If you need to restart the server or change the port, see the 'Stop' section below. To start a new server instance in the background,run `nohup ./run_server.sh {PORT} &`.
+
 ## Configure
 
 Configuration is managed by .json files in the `config` directory:
